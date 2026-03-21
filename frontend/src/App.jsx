@@ -5,6 +5,8 @@ import Dashboard from "./pages/Dashboard";
 import UserStoryDetail from "./pages/UserStoryDetail";
 import CreateProject from "./pages/CreateProject";
 import Backlog from "./pages/Backlog";
+import EditProject from './pages/EditProject';
+import ManageMembers from './pages/ManageMembers';
 
 function App() {
   return (
@@ -17,6 +19,8 @@ function App() {
         <Route path="/userstory/:id" element={<UserStoryDetail />} />
         <Route path="/create-project" element={<CreateProject />} />
         <Route path="/backlog" element={<Backlog />} />
+        <Route path="/projects/:id/edit" element={<EditProject />} />
+        <Route path="/projects/:projectId/members" element={<ManageMembers />} />
       </Routes>
     </Router>
   );

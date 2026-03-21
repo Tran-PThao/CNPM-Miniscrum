@@ -11,6 +11,22 @@ const prisma = new PrismaClient();
 
 app.use(cors());
 app.use(express.json());
+// Middleware auth (dùng cho tất cả route cần quyền)
+const authMiddleware = (req, res, next) => {
+  const token = req.headers.authorization?.split(" ")[1]; // Bearer token
+
+  if (!token) {
+    return res.status(401).json({ error: "Không có token" });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || "mini_scrum_secret");
+    req.user = decoded; // { userId, email, role }
+    next();
+  } catch (err) {
+    res.status(401).json({ error: "Token không hợp lệ" });
+  }
+};
 
 console.log("Backend Mini Scrum Management System - Sprint 1 đang chạy...");
 
@@ -88,6 +104,23 @@ app.get("/api/project", async (req, res) => {
     res.status(500).json({ error: "Lỗi khi lấy danh sách dự án" });
   }
 });
+// Mục đích: Để trang EditProject.jsx có thể "đổ" dữ liệu cũ vào các ô nhập liệu
+app.get("/api/project/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const project = await prisma.project.findUnique({
+      where: { id: id }, // Lưu ý: nếu trong schema.prisma là project_id thì sửa id thành project_id
+    });
+
+    if (!project) {
+      return res.status(404).json({ error: "Không tìm thấy Project" });
+    }
+    res.json(project);
+  } catch (err) {
+    res.status(500).json({ error: "Lỗi server khi lấy chi tiết dự án" });
+  }
+});
+
 // TẠO PROJECT (Hỗ trợ test & Setup)
 app.post("/api/project", async (req, res) => {
   const { name, description, goal } = req.body;
@@ -177,6 +210,88 @@ app.get("/api/project/:projectId/userstories", async (req, res) => {
     res.json(stories);
   } catch (err) {
     res.status(500).json({ error: "Lỗi khi lấy danh sách User Stories" });
+  }
+});
+// US-037: CHỈNH SỬA THÔNG TIN PROJECT (name, description, goal)
+// Chỉ Product Owner (PO) mới được phép chỉnh sửa
+app.patch("/api/project/:id", authMiddleware, async (req, res) => {
+  const { id } = req.params;
+  const { name, description, goal } = req.body;
+
+  try {
+    console.log("Đang xử lý update cho ID:", id); // Xem log ở terminal backend
+
+    const updatedProject = await prisma.project.update({
+      where: { id: id }, // Đảm bảo trường này là 'id' như trong schema.prisma của bạn[cite: 1]
+      data: {
+        name: name !== undefined ? name : undefined,
+        description: description !== undefined ? description : undefined,
+        goal: goal !== undefined ? goal : undefined,
+      },
+    });
+
+    console.log("Update thành công!");
+    return res.json({ message: "Thành công", project: updatedProject });
+
+  } catch (err) {
+    console.error("Lỗi Prisma:", err.message);
+    return res.status(500).json({ error: "Lỗi kết nối Database hoặc ID không tồn tại" });
+  }
+});
+// US-040: LẤY DANH SÁCH THÀNH VIÊN CỦA PROJECT
+app.get("/api/project/:projectId/members", authMiddleware, async (req, res) => {
+  const { projectId } = req.params;
+  try {
+    const members = await prisma.projectMember.findMany({
+      where: { projectId },
+      include: { user: { select: { id: true, email: true, fullName: true } } },
+    });
+    res.json(members);
+  } catch (err) {
+    res.status(500).json({ error: "Lỗi khi lấy danh sách thành viên" });
+  }
+});
+
+// US-040: CẬP NHẬT ROLE CỦA THÀNH VIÊN
+app.patch("/api/project/:projectId/members/:userId/role", authMiddleware, async (req, res) => {
+  const { projectId, userId } = req.params;
+  const { role } = req.body;
+  const requesterId = req.user.userId;
+
+  try {
+    const requester = await prisma.projectMember.findUnique({
+      where: { userId_projectId: { userId: requesterId, projectId } },
+    });
+
+    if (!requester || requester.role !== "PO") {
+      return res.status(403).json({ error: "Chỉ PO mới được phân quyền!" });
+    }
+
+    if (requesterId === userId) {
+      return res.status(400).json({ error: "Không thể đổi role của chính mình!" });
+    }
+
+    const updated = await prisma.projectMember.update({
+      where: { userId_projectId: { userId, projectId } },
+      data: { role },
+    });
+
+    res.json({ message: "Cập nhật role thành công", member: updated });
+  } catch (err) {
+    res.status(500).json({ error: "Lỗi khi cập nhật role" });
+  }
+});
+// SEED: Thêm member đầu tiên không cần kiểm tra quyền
+app.post("/api/project/:projectId/members/seed", async (req, res) => {
+  const { projectId } = req.params;
+  const { userId, role } = req.body;
+  try {
+    const member = await prisma.projectMember.create({
+      data: { userId, projectId, role },
+    });
+    res.json({ message: "Thêm thành công", member });
+  } catch (err) {
+    res.status(400).json({ error: "Thành viên đã tồn tại hoặc dữ liệu sai" });
   }
 });
 // Lắng nghe cổng
