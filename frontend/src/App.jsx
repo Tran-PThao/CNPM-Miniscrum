@@ -1,18 +1,22 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import Register from './pages/Register';
-import Dashboard from './pages/Dashboard';
-import UserStoryDetail from './pages/UserStoryDetail';
-// Thêm sau: ProjectDetail
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import Register from "./pages/Register";
+import Login from "./pages/Login";
+import Dashboard from "./pages/Dashboard";
+import UserStoryDetail from "./pages/UserStoryDetail";
+import CreateProject from "./pages/CreateProject";
+import Backlog from "./pages/Backlog";
 
 function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<Register />} />           {/* Default: Register */}
+        <Route path="/" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/login" element={<Login />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/userstory/:id" element={<UserStoryDetail />} />
-        {/* Sau này thêm: /project/:id */}
+        <Route path="/create-project" element={<CreateProject />} />
+        <Route path="/backlog" element={<Backlog />} />
       </Routes>
     </Router>
   );
