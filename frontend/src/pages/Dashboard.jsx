@@ -7,6 +7,7 @@ export default function Dashboard() {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   const token = localStorage.getItem("token");
   const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -26,7 +27,8 @@ export default function Dashboard() {
     fetchProjects();
   }, [token]);
 
-  const handleLogout = () => { localStorage.clear(); navigate("/login"); };
+  const handleLogout = () => setShowLogoutModal(true);
+  const confirmLogout = () => { localStorage.clear(); navigate("/login"); };
 
   const projectColors = ["#0052CC", "#00875A", "#FF5630", "#6554C0", "#FF8B00", "#00B8D9"];
 
@@ -133,6 +135,20 @@ export default function Dashboard() {
           </div>
         )}
       </main>
+      {/* Logout Confirmation Modal */}
+      {showLogoutModal && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modalBox}>
+            <div style={styles.modalIcon}>🚪</div>
+            <h3 style={styles.modalTitle}>Đăng xuất</h3>
+            <p style={styles.modalText}>Bạn có chắc muốn đăng xuất khỏi hệ thống không?</p>
+            <div style={styles.modalActions}>
+              <button style={styles.cancelBtn} onClick={() => setShowLogoutModal(false)}>Hủy</button>
+              <button style={styles.confirmBtn} onClick={confirmLogout}>Đăng xuất</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -255,5 +271,32 @@ const styles = {
     fontSize: 12, color: "#42526E", fontWeight: 500,
     padding: "6px 4px", borderRadius: 4, textAlign: "center",
     transition: "background 0.15s",
+  },
+  modalOverlay: {
+    position: "fixed", inset: 0, background: "rgba(9,30,66,0.45)",
+    display: "flex", alignItems: "center", justifyContent: "center",
+    zIndex: 1000, backdropFilter: "blur(2px)",
+  },
+  modalBox: {
+    background: "#fff", borderRadius: 16, padding: "36px 32px",
+    textAlign: "center", boxShadow: "0 20px 60px rgba(9,30,66,0.3)",
+    minWidth: 320, maxWidth: 380,
+    animation: "fadeIn 0.2s ease",
+  },
+  modalIcon: { fontSize: 40, marginBottom: 12 },
+  modalTitle: { fontSize: 20, fontWeight: 700, color: "#172B4D", margin: "0 0 8px" },
+  modalText: { fontSize: 14, color: "#6B778C", margin: "0 0 28px", lineHeight: 1.6 },
+  modalActions: { display: "flex", gap: 12, justifyContent: "center" },
+  cancelBtn: {
+    flex: 1, padding: "10px 0", fontSize: 14, fontWeight: 600,
+    background: "#F4F5F7", color: "#42526E", border: "none",
+    borderRadius: 8, cursor: "pointer", transition: "background 0.15s",
+  },
+  confirmBtn: {
+    flex: 1, padding: "10px 0", fontSize: 14, fontWeight: 600,
+    background: "linear-gradient(135deg, #DE350B, #FF5630)",
+    color: "#fff", border: "none", borderRadius: 8,
+    cursor: "pointer", boxShadow: "0 2px 8px rgba(222,53,11,0.35)",
+    transition: "opacity 0.15s",
   },
 };
