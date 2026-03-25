@@ -7,6 +7,7 @@ import CreateProject from "./pages/CreateProject";
 import Backlog from "./pages/Backlog";
 import EditProject from './pages/EditProject';
 import ManageMembers from './pages/ManageMembers';
+import BoardPage from './pages/Board';
 
 function App() {
   return (
@@ -19,6 +20,7 @@ function App() {
         <Route path="/userstory/:id" element={<UserStoryDetail />} />
         <Route path="/create-project" element={<CreateProject />} />
         <Route path="/backlog" element={<Backlog />} />
+        <Route path="/board" element={<BoardPage />} />
         <Route path="/projects/:id/edit" element={<EditProject />} />
         <Route path="/projects/:projectId/members" element={<ManageMembers />} />
       </Routes>
