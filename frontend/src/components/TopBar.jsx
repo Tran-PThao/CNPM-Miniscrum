@@ -1,16 +1,27 @@
+import { useSidebar } from "../context/SidebarContext";
+
 export default function TopBar() {
+  const { toggle } = useSidebar();
+  
   return (
-    <header className="flex justify-between items-center w-full px-8 h-16 sticky top-0 bg-[#f8f9fb]/80 backdrop-blur-xl z-30">
-      {/* Search */}
-      <div className="flex items-center gap-6">
-        <div className="relative">
-          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">
+    <header className="flex justify-between items-center w-full px-4 md:px-8 h-16 sticky top-0 bg-[#f8f9fb]/80 backdrop-blur-xl z-30 border-b border-outline-variant/10">
+      {/* Search + Menu */}
+      <div className="flex items-center gap-3 md:gap-6 w-full max-w-sm md:max-w-none">
+        <button 
+          onClick={toggle}
+          className="p-2 -ml-2 text-[#44474e] hover:bg-[#f1f3f8] rounded-full transition-colors md:hidden"
+        >
+          <span className="material-symbols-outlined">menu</span>
+        </button>
+
+        <div className="relative flex-1 md:flex-none">
+          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-sm md:text-base">
             search
           </span>
           <input
             type="text"
             placeholder="Search tasks..."
-            className="pl-10 pr-4 py-2 bg-surface-container-low border-none rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 w-64 transition-all"
+            className="pl-9 pr-4 py-2 bg-surface-container-low border-none rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 w-full md:w-64 transition-all"
           />
         </div>
       </div>

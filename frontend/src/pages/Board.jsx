@@ -1,4 +1,4 @@
-import Sidebar from "../components/Sidebar";
+import MainLayout from "../components/MainLayout";
 import BoardTopBar from "../components/BoardTopBar";
 import KanbanColumn from "../components/KanbanColumn";
 import FAB from "../components/FAB";
@@ -100,27 +100,23 @@ const doneCards = [
 
 export default function BoardPage() {
   return (
-    <div className="flex overflow-hidden h-screen bg-surface">
-      {/* Sidebar */}
-      <Sidebar activePage="Board" />
-
-      {/* Main */}
-      <main className="ml-64 flex-1 flex flex-col h-screen bg-surface">
-        {/* Top bar */}
-        <BoardTopBar timeRemaining="4 days 12 hours remaining" />
-
+    <MainLayout 
+      activePage="Board"
+      header={<BoardTopBar />}
+    >
+      <div className="h-full">
         {/* Kanban board */}
-        <div className="flex-1 p-8 overflow-x-auto">
-          <div className="flex h-full gap-8 min-w-[1000px]">
+        <div className="flex-1 overflow-x-auto pb-6">
+          <div className="flex h-full gap-4 md:gap-8 min-w-[900px] md:min-w-0 md:grid md:grid-cols-3">
             <KanbanColumn title="To Do"      variant="todo"       cards={todoCards} />
             <KanbanColumn title="In Progress" variant="inprogress" cards={inProgressCards} />
             <KanbanColumn title="Done"        variant="done"       cards={doneCards} />
           </div>
         </div>
-      </main>
+      </div>
 
       {/* FAB */}
       <FAB onClick={() => console.log("Add task")} />
-    </div>
+    </MainLayout>
   );
 }

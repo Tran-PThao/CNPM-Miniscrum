@@ -14,7 +14,7 @@ function CreateProject() {
     e.preventDefault();
     setLoading(true); setMessage(""); setError("");
     try {
-      const res = await fetch("http://localhost:5000/api/project", {
+      const res = await fetch("http://192.168.1.6:5000/api/project", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),

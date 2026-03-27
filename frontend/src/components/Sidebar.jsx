@@ -1,4 +1,4 @@
-export default function Sidebar({ activePage = "Dashboard" }) {
+export default function Sidebar({ activePage = "Dashboard", isOpen, onClose }) {
   const navItems = [
     { icon: "dashboard", label: "Dashboard", href: "/dashboard" },
     { icon: "list_alt", label: "Backlog", href: "/backlog" },
@@ -12,7 +12,7 @@ export default function Sidebar({ activePage = "Dashboard" }) {
   ];
 
   return (
-    <aside className="flex flex-col fixed h-full py-6 pr-4 bg-[#f1f3f8] h-screen w-64 left-0 top-0 z-40 transition-all duration-300 ease-in-out">
+    <aside className={`flex flex-col fixed h-full py-6 pr-4 bg-[#f1f3f8] h-screen w-64 left-0 top-0 z-50 transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
       {/* Logo */}
       <div className="px-6 mb-10 flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary-container flex items-center justify-center text-on-primary">

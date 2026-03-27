@@ -29,7 +29,7 @@ const ManageMembers = () => {
   const fetchMembers = async () => {
     try {
       const res = await axios.get(
-        `http://localhost:5000/api/project/${projectId}/members`,
+        `http://192.168.1.6:5000/api/project/${projectId}/members`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setMembers(res.data);
@@ -44,7 +44,7 @@ const ManageMembers = () => {
     setError(null); setSuccess(null); setUpdatingId(userId);
     try {
       await axios.patch(
-        `http://localhost:5000/api/project/${projectId}/members/${userId}/role`,
+        `http://192.168.1.6:5000/api/project/${projectId}/members/${userId}/role`,
         { role: newRole },
         { headers: { Authorization: `Bearer ${token}` } }
       );
