@@ -1,14 +1,17 @@
-export default function Sidebar({ activePage = "Dashboard", isOpen, onClose }) {
+import { useNavigate } from "react-router-dom";
+
+export default function Sidebar({ activePage = "Dashboard", isOpen, onClose, projectId }) {
+  const navigate = useNavigate();
   const navItems = [
     { icon: "dashboard", label: "Dashboard", href: "/dashboard" },
-    { icon: "list_alt", label: "Backlog", href: "/backlog" },
-    { icon: "view_kanban", label: "Board", href: "#" },
+    { icon: "list_alt", label: "Backlog", href: projectId ? `/projects/${projectId}/backlog` : "/backlog" },
+    { icon: "view_kanban", label: "Board", href: projectId ? `/projects/${projectId}/board` : "/board" },
     { icon: "assessment", label: "Reports", href: "#" },
   ];
 
   const bottomItems = [
-    { icon: "group", label: "Team" },
-    { icon: "settings", label: "Settings" },
+    { icon: "group", label: "Team", href: projectId ? `/projects/${projectId}/members` : "#" },
+    { icon: "settings", label: "Settings", href: "#" },
   ];
 
   return (
@@ -28,43 +31,52 @@ export default function Sidebar({ activePage = "Dashboard", isOpen, onClose }) {
       <nav className="flex-1 space-y-1">
       {navItems.map(({ icon, label, href }) =>
           label === activePage ? (
-            <a
+            <button
               key={label}
-              href={href}
-              className="flex items-center gap-3 px-6 py-3 bg-white text-primary rounded-r-full shadow-sm font-['Inter'] text-sm font-medium transition-all"
+              onClick={() => href !== "#" && navigate(href)}
+              className="w-full flex items-center gap-3 px-6 py-3 bg-white text-primary rounded-r-full shadow-sm font-['Inter'] text-sm font-medium transition-all text-left"
             >
               <span className="material-symbols-outlined">{icon}</span>
               <span>{label}</span>
-            </a>
+            </button>
           ) : (
-            <a
+            <button
               key={label}
-              href={href}
-              className="flex items-center gap-3 px-6 py-3 text-[#44474e] hover:pl-8 hover:text-primary font-['Inter'] text-sm font-medium transition-all"
+              onClick={() => href !== "#" && navigate(href)}
+              className="w-full flex items-center gap-3 px-6 py-3 text-[#44474e] hover:pl-8 hover:text-primary font-['Inter'] text-sm font-medium transition-all text-left"
             >
               <span className="material-symbols-outlined">{icon}</span>
               <span>{label}</span>
-            </a>
+            </button>
           )
         )}
       </nav>
 
       {/* Bottom section */}
       <div className="mt-auto px-4">
-        <button className="w-full flex items-center justify-center gap-2 py-3 mb-6 bg-gradient-to-br from-primary to-primary-container text-on-primary rounded-xl font-semibold shadow-lg hover:scale-[0.98] transition-all">
+        <button 
+          onClick={() => {
+            if (activePage === "Backlog") {
+              window.dispatchEvent(new CustomEvent("open-create-story-modal"));
+            } else {
+              navigate(projectId ? `/projects/${projectId}/backlog?action=create` : "/backlog?action=create");
+            }
+          }}
+          className="w-full flex items-center justify-center gap-2 py-3 mb-6 bg-gradient-to-br from-primary to-primary-container text-on-primary rounded-xl font-semibold shadow-lg hover:scale-[0.98] transition-all"
+        >
           <span className="material-symbols-outlined">add</span>
           <span>Create Task</span>
         </button>
         <div className="space-y-1">
-          {bottomItems.map(({ icon, label }) => (
-            <a
+          {bottomItems.map(({ icon, label, href }) => (
+            <button
               key={label}
-              href="#"
-              className="flex items-center gap-3 px-6 py-2 text-[#44474e] hover:text-primary font-['Inter'] text-sm font-medium transition-all"
+              onClick={() => href !== "#" && navigate(href)}
+              className="w-full flex items-center gap-3 px-6 py-2 text-[#44474e] hover:text-primary font-['Inter'] text-sm font-medium transition-all text-left"
             >
               <span className="material-symbols-outlined">{icon}</span>
               <span>{label}</span>
-            </a>
+            </button>
           ))}
         </div>
       </div>

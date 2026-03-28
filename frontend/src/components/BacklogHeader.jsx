@@ -1,4 +1,5 @@
 import { useSidebar } from "../context/SidebarContext";
+import { useNavigate } from "react-router-dom";
 
 const contributors = [
   "https://lh3.googleusercontent.com/aida-public/AB6AXuBjKL2ISrsCNns8o1KNta57CO8CEJ1XMRzuYwPe10xl4AfhRqOjlJxHphiFOnwPBbK-OvCqI01ZKDhkijPG8inIYpO1TPB5rHjd-PeKpH3xQ4qiyak89AmFlBz30ROkbEuc3foEzlUNkh-cI1AyMCumklnzqfkeKb2l0reslMgqDEm4ascvUsL8_FY-zrtroFodbBellAKHFsZf9i3wabuYYLEiW4fxYAIK6pHsYAhRS5_Qk5WnE4GMxOPE5Cu8rStLmOUaXrK7CN8",
@@ -6,8 +7,9 @@ const contributors = [
   "https://lh3.googleusercontent.com/aida-public/AB6AXuDWUv8ag8Ox6wV7LQsCZTxFF7M6HZZckWo2lB5eRcc-oVRqQAH8sjtJfok4ucJKXF7KbqM2YsQY2ZUsY6e7SEsuOf5YHdBher7ZzL5u1tkubJeBgh_Pdrjaw1s2sCQZHJ8Rqq5UMLMzDe2TxvcKQinrid75GK_QGdmOoXV93LXse9D0m1YxL-7ZelfC1JUwFK6bu_yRFgs8I-q2yVKEehXQOgB8Z-K9URExl7dR6oWy__qW5GRfX3dcNkIyqPRLyEH2STRC1LHWYLc",
 ];
 
-export default function BacklogHeader({ daysLeft = 6, contributorCount = 12 }) {
+export default function BacklogHeader({ daysLeft = 6, contributorCount = 12, projectId, projectName }) {
   const { toggle } = useSidebar();
+  const navigate = useNavigate();
 
   return (
     <header className="flex justify-between items-center w-full mb-8 md:mb-12 gap-4">
@@ -20,8 +22,8 @@ export default function BacklogHeader({ daysLeft = 6, contributorCount = 12 }) {
           <span className="material-symbols-outlined">menu</span>
         </button>
         <div className="flex flex-col">
-          <h2 className="font-['Manrope'] font-bold text-2xl md:text-3xl text-on-surface tracking-tight">
-            Project Backlog
+          <h2 className="font-['Manrope'] font-bold text-2xl md:text-3xl text-on-surface tracking-tighter">
+            {projectName || "Project Backlog"}
           </h2>
           <div className="flex items-center mt-2 gap-4">
             <div className="flex -space-x-2">
@@ -47,6 +49,19 @@ export default function BacklogHeader({ daysLeft = 6, contributorCount = 12 }) {
           <span className="material-symbols-outlined text-on-surface-variant text-sm md:text-base">timer</span>
           <span className="text-xs md:text-sm font-medium text-on-surface whitespace-nowrap">{daysLeft} days left</span>
         </div>
+        
+        {/* Nút Manage Team mới */}
+        {projectId && (
+          <button 
+            onClick={() => navigate(`/projects/${projectId}/members`)}
+            className="p-2.5 rounded-xl bg-primary text-on-primary hover:scale-[0.98] shadow-md transition-all flex items-center gap-2 font-bold text-xs"
+            title="Quản lý thành viên"
+          >
+            <span className="material-symbols-outlined text-lg">group_add</span>
+            <span className="hidden lg:inline">Quản lý Team</span>
+          </button>
+        )}
+
         <button className="p-2 rounded-full hover:bg-surface-container-high transition-colors hidden sm:block">
           <span className="material-symbols-outlined">notifications</span>
         </button>

@@ -39,12 +39,15 @@ const tasks = [
   },
 ];
 
+import { useNavigate } from "react-router-dom";
+
 export default function MyTasks() {
+  const navigate = useNavigate();
   return (
     <div className="col-span-12 lg:col-span-8 bg-surface-container-low rounded-xl p-8">
       <div className="flex justify-between items-end mb-6">
         <h3 className="font-['Manrope'] font-bold text-lg">My Tasks</h3>
-        <button className="text-sm font-semibold text-primary hover:underline transition-all">View all</button>
+        <button onClick={() => navigate("/board")} className="text-sm font-semibold text-primary hover:underline transition-all">View all</button>
       </div>
 
       <div className="space-y-4">

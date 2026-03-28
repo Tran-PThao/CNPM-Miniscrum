@@ -23,14 +23,14 @@ const comments = [
 const currentUserAvatar =
   "https://lh3.googleusercontent.com/aida-public/AB6AXuDLcOBYEcguPHsxx-4oVeeeTs7bPdeJAqRidamI76xmbUAL-wrxlq82qbJUIrjnGTTjGcXeRRXnL8yMmznKPPrEfhd4XCOVzNxmT7icitJS0XZQZZFzhfn9-WO4cojlr6tiRDsaVk3tUCISGX5jmS33cw5IQxT0WKu_xRvy-0WQ1ZPZhXuUzB8c04Z5J8iL0kI1bgEMg9FHPzEnESGd3txbqiPk0BJYRhHGerZgdF0YjUayQSW394a2c-1qx3zPIyccdrE80SJfNSo";
 
-export default function StoryContent({ storyId = "MS-102", onClose }) {
+export default function StoryContent({ story, onClose }) {
   return (
     <div className="flex-1 flex flex-col h-full bg-surface-container-lowest">
       {/* Header */}
       <div className="flex items-center justify-between px-8 py-6 shrink-0">
         <div className="flex items-center gap-2 text-xs font-semibold tracking-widest text-primary uppercase">
           <span className="material-symbols-outlined text-sm">task_alt</span>
-          <span>User Story — {storyId}</span>
+          <span>User Story — {story.id}</span>
         </div>
         <div className="flex items-center gap-2">
           <button className="p-2 hover:bg-surface-container-low rounded-full transition-colors text-outline">
@@ -53,12 +53,11 @@ export default function StoryContent({ storyId = "MS-102", onClose }) {
         {/* Title & Description */}
         <section>
           <h2 className="font-['Manrope'] font-extrabold text-3xl text-on-surface leading-tight mb-4">
-            Implement OAuth2 authentication for enterprise SSO
+            {story.title}
           </h2>
           <div className="text-on-surface-variant font-['Inter'] leading-relaxed space-y-4">
             <p>
-              As a user, I want to log in using my company credentials so that I don't have to
-              manage another set of passwords and our IT department can manage access centrally.
+              {story.description || "No description provided."}
             </p>
             <h4 className="font-bold text-on-surface mt-6 mb-2">Acceptance Criteria</h4>
             <ul className="list-disc pl-5 space-y-2 text-sm">

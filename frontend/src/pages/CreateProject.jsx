@@ -14,9 +14,13 @@ function CreateProject() {
     e.preventDefault();
     setLoading(true); setMessage(""); setError("");
     try {
-      const res = await fetch("http://192.168.1.6:5000/api/project", {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`http://${window.location.hostname}:5000/api/project`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
         body: JSON.stringify(form),
       });
       const data = await res.json();

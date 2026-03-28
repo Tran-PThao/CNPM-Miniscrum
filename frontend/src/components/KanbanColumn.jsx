@@ -18,7 +18,7 @@ const columnConfig = {
  * @param {"todo"|"inprogress"|"done"} props.variant
  * @param {Array}    props.cards       - array of KanbanCard props
  */
-export default function KanbanColumn({ title, variant = "todo", cards = [] }) {
+export default function KanbanColumn({ title, variant = "todo", cards = [], onStatusUpdate, onAssign, onEdit, onDelete, userRole }) {
   const cfg = columnConfig[variant];
 
   return (
@@ -41,7 +41,16 @@ export default function KanbanColumn({ title, variant = "todo", cards = [] }) {
       {/* Cards */}
       <div className={`flex flex-col gap-4 overflow-y-auto ${variant === "done" ? "opacity-80" : ""}`}>
         {cards.map((card) => (
-          <KanbanCard key={card.id} {...card} done={variant === "done"} />
+          <KanbanCard 
+            key={card.id} 
+            {...card} 
+            done={variant === "done"} 
+            onStatusUpdate={(newStatus) => onStatusUpdate(card.id, newStatus)} 
+            onAssign={onAssign} 
+            onEdit={onEdit}
+            onDelete={onDelete}
+            userRole={userRole}
+          />
         ))}
       </div>
     </div>

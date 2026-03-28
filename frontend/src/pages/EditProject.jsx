@@ -14,7 +14,7 @@ const EditProject = () => {
   useEffect(() => {
     const fetchProject = async () => {
       try {
-        const res = await axios.get(`http://192.168.1.6:5000/api/project/${id}`);
+        const res = await axios.get(`http://${window.location.hostname}:5000/api/project/${id}`);
         setFormData({ name: res.data.name || '', description: res.data.description || '', goal: res.data.goal || '' });
       } catch (err) {
         setError(err.response?.data?.error || 'Không thể tải thông tin dự án.');
@@ -34,7 +34,7 @@ const EditProject = () => {
     if (!token) { setError('Bạn chưa đăng nhập hoặc phiên làm việc hết hạn.'); return; }
     setSubmitLoading(true);
     try {
-      await axios.patch(`http://192.168.1.6:5000/api/project/${id}`, formData, {
+      await axios.patch(`http://${window.location.hostname}:5000/api/project/${id}`, formData, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setSuccess(true);

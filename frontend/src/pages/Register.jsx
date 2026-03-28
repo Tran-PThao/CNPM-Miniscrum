@@ -15,7 +15,7 @@ export default function Register() {
     e.preventDefault();
     setError(''); setSuccess(''); setLoading(true);
     try {
-      const res = await axios.post('http://192.168.1.6:5000/api/register', form);
+      const res = await axios.post(`http://${window.location.hostname}:5000/api/register`, form);
       setSuccess('Đăng ký thành công! Đang chuyển hướng...');
       localStorage.setItem('userId', res.data.userId);
       setTimeout(() => navigate('/dashboard'), 1500);

@@ -1,12 +1,24 @@
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import StoryContent from "../components/StoryContent";
 import StoryMetaSidebar from "../components/StoryMetaSidebar";
+import { getUserStory } from "../services/api";
 
 export default function UserStoryDetail() {
   const navigate = useNavigate();
+  const { id } = useParams();
+  const [story, setStory] = useState(null);
+
+  useEffect(() => {
+    if (id) {
+      getUserStory(id).then(res => setStory(res.data)).catch(() => navigate('/dashboard'));
+    }
+  }, [id, navigate]);
 
   const handleClose = () => navigate(-1);
+
+  if (!story) return null;
 
   return (
     <div className="flex overflow-hidden h-screen bg-surface font-['Inter'] text-on-surface antialiased">
@@ -15,7 +27,6 @@ export default function UserStoryDetail() {
 
       {/* Blurred board background */}
       <main className="ml-64 flex-1 p-8 min-h-screen bg-surface relative">
-        {/* Sprint Backlog header (blurred bg) */}
         <header className="flex justify-between items-center mb-10">
           <div>
             <h2 className="font-['Manrope'] font-bold text-3xl tracking-tight text-on-surface">
@@ -43,34 +54,18 @@ export default function UserStoryDetail() {
           </div>
         </header>
 
-        {/* Dummy skeleton columns (blurred) */}
-        <div className="grid grid-cols-3 gap-8 opacity-40 blur-[2px] pointer-events-none">
-          {[3, 2, 2].map((count, col) => (
-            <div key={col} className="space-y-4">
-              <div className="h-4 w-24 bg-surface-container-highest rounded" />
-              {Array.from({ length: count }).map((_, i) => (
-                <div key={i} className="h-40 bg-surface-container-lowest rounded-xl shadow-sm" />
-              ))}
-            </div>
-          ))}
-        </div>
-
         {/* Modal backdrop + modal */}
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-8 bg-on-surface/20 backdrop-blur-sm">
-          {/* Modal panel */}
           <div className="bg-white/80 backdrop-blur-xl w-full max-w-5xl h-full max-h-[850px] rounded-[2rem] shadow-2xl overflow-hidden flex flex-col md:flex-row border border-outline-variant/15">
-            {/* Left: story content */}
-            <StoryContent storyId="MS-102" onClose={handleClose} />
-
-            {/* Right: meta sidebar */}
+            <StoryContent story={story} onClose={handleClose} />
             <StoryMetaSidebar
-              status="In Progress"
-              assignee="Alex"
-              storyPoints={8}
-              priority="High"
-              created="Feb 14, 2024 · 09:12 AM"
-              updated="10 mins ago"
-              sprintProgress={65}
+              status={story.status}
+              assignee={story.assignee?.fullName || "Unassigned"}
+              storyPoints={story.storyPoints || 0}
+              priority={story.priority}
+              created="Mới tạo"
+              updated="Mới nhất"
+              sprintProgress={story.status === 'DONE' ? 100 : story.status === 'IN_PROGRESS' ? 50 : 0}
             />
           </div>
         </div>

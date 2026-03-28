@@ -22,7 +22,14 @@ export default function KanbanCard({
   avatars = [],
   progress,
   done = false,
+  status,
+  onStatusUpdate,
+  onAssign,
+  onEdit,
+  onDelete,
+  userRole
 }) {
+  const isManagement = userRole === "PO" || userRole === "SM";
   return (
     <div
       className={`group bg-surface-container-lowest p-4 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer ${
@@ -31,13 +38,36 @@ export default function KanbanCard({
     >
       {/* Header row */}
       <div className="flex justify-between items-start mb-3">
-        <span
-          className={`text-[10px] font-bold font-['Inter'] uppercase tracking-widest ${
-            done ? "text-outline line-through" : progress !== undefined ? "text-primary" : "text-outline"
-          }`}
-        >
-          {id}
-        </span>
+        <div className="flex items-center gap-2">
+          <span
+            className={`text-[10px] font-black font-mono uppercase tracking-widest ${
+              done ? "text-outline line-through" : progress !== undefined ? "text-primary" : "text-outline"
+            }`}
+          >
+            {id?.slice(-6) || "STORY"}
+          </span>
+
+          {/* Edit/Delete Actions for Management */}
+          {isManagement && (
+            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button 
+                onClick={(e) => { e.stopPropagation(); onEdit?.({ id, title, priority, status }); }}
+                className="p-1 hover:bg-surface-container-high rounded text-on-surface-variant transition-colors"
+                title="Sửa Story"
+              >
+                <span className="material-symbols-outlined text-xs">edit</span>
+              </button>
+              <button 
+                onClick={(e) => { e.stopPropagation(); onDelete?.(id); }}
+                className="p-1 hover:bg-error/10 rounded text-error transition-colors"
+                title="Xóa Story"
+              >
+                <span className="material-symbols-outlined text-xs">delete</span>
+              </button>
+            </div>
+          )}
+        </div>
+
         {done ? (
           <span
             className="material-symbols-outlined text-emerald-500 text-sm"
@@ -47,7 +77,7 @@ export default function KanbanCard({
           </span>
         ) : (
           <span
-            className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${priorityConfig[priority]}`}
+            className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${priorityConfig[priority] || priorityConfig.MEDIUM}`}
             style={{ borderColor: "rgba(0,0,0,0.06)" }}
           >
             {priority}
@@ -84,20 +114,59 @@ export default function KanbanCard({
           <span className="text-[11px] font-medium">{attachments}</span>
         </div>
 
-        {done ? (
-          <div className="text-[10px] font-bold text-emerald-600/70">COMPLETED</div>
-        ) : avatars.length > 0 ? (
-          <div className="flex -space-x-2">
-            {avatars.map((src, i) => (
-              <img
-                key={i}
-                alt="Assignee"
-                className="w-6 h-6 rounded-full ring-2 ring-white object-cover"
-                src={src}
-              />
-            ))}
-          </div>
-        ) : null}
+        <div className="flex items-center gap-2">
+          {avatars.length > 0 && !done && (
+            <div className="flex -space-x-2 mr-2">
+              {avatars.map((name, i) => (
+                <div key={i} title={name} className="w-6 h-6 rounded-full ring-2 ring-white bg-primary text-white flex items-center justify-center text-[10px] font-bold">
+                  {name.charAt(0)}
+                </div>
+              ))}
+            </div>
+          )}
+          
+          {avatars.length === 0 && !done && isManagement && (
+            <div onClick={(e) => { e.stopPropagation(); onAssign?.(id); }} className="w-6 h-6 mr-2 rounded-full bg-surface-container flex items-center justify-center cursor-pointer hover:bg-primary/20 hover:text-primary transition-colors text-outline" title="Gán thành viên">
+              <span className="material-symbols-outlined text-[13px]">person_add</span>
+            </div>
+          )}
+          
+          {done ? (
+            <div className="flex gap-3 items-center">
+              <div className="text-[10px] font-bold text-emerald-600/70">COMPLETED</div>
+              {isManagement && (
+                <button 
+                  onClick={(e) => { e.stopPropagation(); onStatusUpdate("TODO"); }} 
+                  className="text-[10px] font-bold px-2 py-1 bg-surface rounded hover:bg-surface-dim hover:text-primary transition-colors text-outline"
+                >
+                  REOPEN
+                </button>
+              )}
+            </div>
+          ) : status === 'TODO' ? (
+            isManagement ? (
+              <button 
+                onClick={(e) => { e.stopPropagation(); onStatusUpdate("IN_PROGRESS"); }} 
+                className="text-[10px] font-bold px-3 py-1 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors"
+              >
+                START
+              </button>
+            ) : (
+              <div className="text-[10px] font-bold text-outline">TO DO</div>
+            )
+          ) : (
+            isManagement ? (
+              <button 
+                onClick={(e) => { e.stopPropagation(); onStatusUpdate("DONE"); }} 
+                className="text-[10px] font-bold px-3 py-1 bg-emerald-500 text-white rounded-md hover:bg-emerald-600 transition-colors"
+              >
+                COMPLETE
+              </button>
+            ) : (
+              <div className="text-[10px] font-bold text-primary">IN PROGRESS</div>
+            )
+          )}
+        </div>
       </div>
     </div>
   );

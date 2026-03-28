@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../services/api';
 
-const ROLES = ['PO', 'SM', 'DEV'];
+const ROLES = ['PO', 'SM', 'MEMBER'];
 const ROLE_STYLE = {
-  PO: { background: '#FFEBE6', color: '#BF2600', border: '1px solid #FF8F73' },
-  SM: { background: '#FFF0B3', color: '#172B4D', border: '1px solid #FFE380' },
-  DEV: { background: '#DEEBFF', color: '#0052CC', border: '1px solid #4C9AFF' },
+  PO: "bg-error-container text-on-error-container ring-1 ring-error/20",
+  SM: "bg-tertiary-container text-on-tertiary-container ring-1 ring-tertiary/20",
+  MEMBER: "bg-secondary-container text-on-secondary-container ring-1 ring-secondary/20",
 };
 
-const ManageMembers = () => {
+export default function ManageMembers() {
   const { projectId } = useParams();
   const navigate = useNavigate();
   const [members, setMembers] = useState([]);
@@ -18,37 +18,68 @@ const ManageMembers = () => {
   const [success, setSuccess] = useState(null);
   const [updatingId, setUpdatingId] = useState(null);
 
-  const token = localStorage.getItem('token');
+  // Smart Invite states
+  const [searchQuery, setSearchQuery] = useState("");
+  const [suggestions, setSuggestions] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isInviting, setIsInviting] = useState(false);
+
   const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
 
   useEffect(() => {
-    fetchMembers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (projectId) fetchMembers();
   }, [projectId]);
+
+  // Search logic (Autocomplete)
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      if (searchQuery.length >= 2) {
+        setIsSearching(true);
+        api.get(`/users/search?query=${searchQuery}`)
+          .then(res => setSuggestions(res.data))
+          .catch(() => setSuggestions([]))
+          .finally(() => setIsSearching(false));
+      } else {
+        setSuggestions([]);
+      }
+    }, 300);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery]);
 
   const fetchMembers = async () => {
     try {
-      const res = await axios.get(
-        `http://192.168.1.6:5000/api/project/${projectId}/members`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await api.get(`/project/${projectId}/members`);
       setMembers(res.data);
-    } catch (_err) {
-      setError('Không thể tải danh sách thành viên.');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Không thể tải danh sách thành viên.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleInvite = async (user) => {
+    setIsInviting(true);
+    setSearchQuery("");
+    setSuggestions([]);
+    try {
+      await api.post(`/project/${projectId}/invite`, { userId: user.id });
+      setSuccess(`Đã mời ${user.fullName} vào dự án!`);
+      await fetchMembers();
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Lỗi khi mời thành viên.');
+      setTimeout(() => setError(null), 3000);
+    } finally {
+      setIsInviting(false);
     }
   };
 
   const handleRoleChange = async (userId, newRole) => {
     setError(null); setSuccess(null); setUpdatingId(userId);
     try {
-      await axios.patch(
-        `http://192.168.1.6:5000/api/project/${projectId}/members/${userId}/role`,
-        { role: newRole },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setSuccess('Cập nhật role thành công!');
+      await api.patch(`/project/${projectId}/members/${userId}/role`, { role: newRole });
+      setSuccess('Cập nhật quyền hạn thành công!');
       setMembers(prev => prev.map(m => m.userId === userId ? { ...m, role: newRole } : m));
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
@@ -58,213 +89,192 @@ const ManageMembers = () => {
     }
   };
 
+  const handleKick = async (userId, userName) => {
+    if (!window.confirm(`Bạn có chắc chắn muốn kick ${userName} khỏi dự án? Mọi task đang gán cho người này sẽ trở về trạng thái 'Chưa gán'.`)) return;
+    setError(null); setSuccess(null); setUpdatingId(userId);
+    try {
+      await api.delete(`/project/${projectId}/members/${userId}`);
+      setSuccess(`Đã xóa ${userName} khỏi dự án.`);
+      setMembers(prev => prev.filter(m => m.userId !== userId));
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Lỗi khi kick thành viên.');
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
   const currentMember = members.find(m => m.userId === currentUser.id);
   const isPO = currentMember?.role === 'PO';
 
+  const avatarColor = (name = "U") => {
+    const colors = ['bg-primary', 'bg-tertiary', 'bg-error', 'bg-secondary'];
+    return colors[name.charCodeAt(0) % colors.length];
+  };
+
   return (
-    <div style={st.page}>
-      <nav style={st.nav}>
-        <div style={st.navLeft}>
-          <div style={st.logoWrap}>
-            <div style={st.logoIcon}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                <path d="M12 2L4 7v10l8 5 8-5V7L12 2z" fill="#fff" opacity="0.9"/>
-                <path d="M12 2L4 7l8 5 8-5-8-5z" fill="#fff"/>
-              </svg>
-            </div>
-            <span style={st.logoText}>Mini Scrum</span>
+    <div className="min-h-screen bg-surface-container-lowest font-['Inter']">
+      <nav className="bg-surface-container h-16 flex items-center justify-between px-6 border-b border-outline-variant/10">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-on-primary">
+            <span className="material-symbols-outlined text-lg">group</span>
           </div>
+          <span className="font-bold text-on-surface tracking-tight">Mini Scrum • Quản lý Team</span>
         </div>
-        <button style={st.backBtn} onClick={() => navigate('/dashboard')}>← Quay về Dashboard</button>
+        <button 
+          onClick={() => navigate(`/projects/${projectId}/backlog`)}
+          className="px-4 py-2 bg-surface text-primary border border-primary/20 rounded-xl text-sm font-bold hover:bg-primary/5 transition-all"
+        >
+          ← Back to Project
+        </button>
       </nav>
 
-      <main style={st.main}>
-        <div style={st.breadcrumb}>
-          <span style={st.breadcrumbLink} onClick={() => navigate('/dashboard')}>Dự án</span>
-          <span style={st.breadcrumbSep}>/</span>
-          <span style={st.breadcrumbCurrent}>Quản lý thành viên</span>
-        </div>
-
-        <div style={st.card}>
-          <div style={st.cardTop}>
-            <div style={st.cardIcon}>👥</div>
-            <div style={{ flex: 1 }}>
-              <h1 style={st.cardTitle}>Quản lý thành viên</h1>
-              <p style={st.cardSubtitle}>
-                {isPO ? 'Bạn là PO — có thể thay đổi role của thành viên.' : 'Chỉ PO mới có thể thay đổi role.'}
+      <main className="max-w-4xl mx-auto py-10 px-6">
+        <div className="bg-white rounded-3xl shadow-xl shadow-surface-variant/5 border border-outline-variant/10 overflow-hidden">
+          {/* Header section */}
+          <div className="p-8 border-b border-outline-variant/10 bg-surface-container-low flex items-center justify-between gap-6">
+            <div className="flex-1">
+              <h1 className="text-3xl font-extrabold text-on-surface tracking-tighter mb-1">Thành viên Dự án</h1>
+              <p className="text-sm text-on-surface-variant font-medium">
+                {isPO ? 'Bạn là Product Owner — có quyền thay đổi vai trò.' : 'Bạn đang xem danh sách thành viên dự án.'}
               </p>
             </div>
-            <div style={st.memberCount}>
-              <span style={st.memberCountNum}>{members.length}</span>
-              <span style={st.memberCountLabel}>thành viên</span>
+            <div className="bg-primary/5 px-4 py-3 rounded-2xl flex flex-col items-center min-w-[100px]">
+              <span className="text-2xl font-black text-primary leading-none">{members.length}</span>
+              <span className="text-[10px] font-bold text-primary/60 uppercase tracking-widest mt-1">Members</span>
             </div>
           </div>
 
-          {!isPO && !loading && (
-            <div style={st.warningBox}>
-              <span>ℹ</span> Bạn chỉ có thể xem danh sách. Chỉ PO mới được đổi role.
-            </div>
-          )}
-          {error && <div style={st.errorBox}><span>⚠</span> {error}</div>}
-          {success && <div style={st.successBox}><span>✓</span> {success}</div>}
+          <div className="p-8">
+            {/* SMART INVITE SECTION */}
+            {isPO && (
+              <div className="mb-10 relative">
+                <label className="block text-xs font-black text-primary uppercase tracking-widest mb-3">Mời thành viên mới</label>
+                <div className="relative group">
+                  <div className={`flex items-center gap-3 bg-surface-container-low border ${searchQuery ? 'border-primary' : 'border-outline-variant/10'} rounded-2xl px-5 py-4 focus-within:ring-4 focus-within:ring-primary/10 transition-all`}>
+                    <span className="material-symbols-outlined text-primary/60 group-focus-within:text-primary transition-colors">person_add</span>
+                    <input 
+                      type="text" 
+                      placeholder="Tìm theo Tên hoặc Email (nhập từ 2 ký tự)..."
+                      className="bg-transparent border-none outline-none flex-1 text-sm font-medium text-on-surface placeholder:text-on-surface-variant/40"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                    {isSearching && <div className="w-5 h-5 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />}
+                  </div>
 
-          {loading ? (
-            <div style={st.loadingWrap}>
-              <div style={st.spinner} />
-              <span style={{ color: "#6B778C", fontSize: 14 }}>Đang tải thành viên...</span>
-            </div>
-          ) : members.length === 0 ? (
-            <div style={st.emptyState}>
-              <div style={{ fontSize: 40 }}>👤</div>
-              <p style={{ color: "#6B778C", fontSize: 14 }}>Chưa có thành viên nào trong dự án này.</p>
-            </div>
-          ) : (
-            <div style={st.table}>
-              <div style={st.tableHeader}>
-                <div style={{ ...st.th, flex: 2 }}>Thành viên</div>
-                <div style={{ ...st.th, flex: 2 }}>Email</div>
-                <div style={{ ...st.th, flex: 1 }}>Role hiện tại</div>
-                {isPO && <div style={{ ...st.th, flex: 1 }}>Đổi role</div>}
-              </div>
-              {members.map((member, idx) => (
-                <div key={member.userId} style={{ ...st.tableRow, background: idx % 2 === 0 ? '#fff' : '#FAFBFC' }}>
-                  <div style={{ ...st.td, flex: 2 }}>
-                    <div style={st.memberInfo}>
-                      <div style={{ ...st.avatar, background: avatarColor(member.user.fullName) }}>
-                        {member.user.fullName?.charAt(0)?.toUpperCase() || '?'}
-                      </div>
-                      <div>
-                        <div style={st.memberName}>
-                          {member.user.fullName || '(Chưa đặt tên)'}
-                          {member.userId === currentUser.id && <span style={st.youBadge}>Bạn</span>}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div style={{ ...st.td, flex: 2, color: '#42526E', fontSize: 13 }}>{member.user.email}</div>
-                  <div style={{ ...st.td, flex: 1 }}>
-                    <span style={{ ...st.roleBadge, ...ROLE_STYLE[member.role] }}>{member.role}</span>
-                  </div>
-                  {isPO && (
-                    <div style={{ ...st.td, flex: 1 }}>
-                      {member.userId === currentUser.id ? (
-                        <span style={{ fontSize: 12, color: '#6B778C' }}>—</span>
-                      ) : (
-                        <select
-                          value={member.role}
-                          disabled={updatingId === member.userId}
-                          onChange={(e) => handleRoleChange(member.userId, e.target.value)}
-                          style={st.select}
+                  {/* Suggestions Dropdown */}
+                  {suggestions.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-outline-variant/10 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                      {suggestions.map(user => (
+                        <button
+                          key={user.id}
+                          onClick={() => handleInvite(user)}
+                          disabled={isInviting || members.some(m => m.userId === user.id)}
+                          className="w-full flex items-center justify-between p-4 hover:bg-primary/5 transition-all text-left border-b border-outline-variant/10 last:border-0 group/item"
                         >
-                          {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-                        </select>
-                      )}
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm">
+                              {user.fullName.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <div className="font-bold text-on-surface text-sm">{user.fullName}</div>
+                              <div className="text-xs text-on-surface-variant italic">{user.email}</div>
+                            </div>
+                          </div>
+                          {members.some(m => m.userId === user.id) ? (
+                            <span className="text-[10px] font-black text-on-surface-variant/40 uppercase tracking-widest px-3 py-1 bg-surface-container rounded-full">Đã tham gia</span>
+                          ) : (
+                            <span className="material-symbols-outlined text-primary opacity-0 group-hover/item:opacity-100 transition-opacity">add_task</span>
+                          )}
+                        </button>
+                      ))}
                     </div>
                   )}
                 </div>
-              ))}
-            </div>
-          )}
+                <p className="mt-2 text-[10px] text-on-surface-variant/60 font-medium px-1 italic">
+                  Chỉ những người đã đăng ký tài khoản mới xuất hiện trong tìm kiếm.
+                </p>
+              </div>
+            )}
+
+            {error && (
+              <div className="mb-6 p-4 bg-error-container text-on-error-container rounded-2xl flex items-center gap-3 text-sm font-bold animate-in slide-in-from-top-2">
+                <span className="material-symbols-outlined">warning</span> {error}
+              </div>
+            )}
+            {success && (
+              <div className="mb-6 p-4 bg-emerald-100 text-emerald-800 rounded-2xl flex items-center gap-3 text-sm font-bold animate-in slide-in-from-top-2">
+                <span className="material-symbols-outlined">check_circle</span> {success}
+              </div>
+            )}
+
+            {loading ? (
+              <div className="py-20 flex flex-col items-center gap-4 text-on-surface-variant">
+                <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+                <span className="text-sm font-bold">Đang tải danh sách...</span>
+              </div>
+            ) : members.length === 0 ? (
+              <div className="py-20 text-center text-on-surface-variant opacity-60">
+                <span className="material-symbols-outlined text-5xl mb-3">person_search</span>
+                <p className="font-bold">Chưa có thành viên nào.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {members.map((member) => (
+                  <div key={member.userId} className="group flex items-center justify-between p-4 rounded-2xl border border-outline-variant/10 hover:bg-surface-container-low transition-all">
+                    <div className="flex items-center gap-4">
+                      <div className={`w-12 h-12 rounded-full ${avatarColor(member.user.fullName)} flex items-center justify-center text-on-primary font-bold text-lg ring-4 ring-white shadow-sm`}>
+                        {member.user.fullName?.charAt(0).toUpperCase() || '?'}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-on-surface">{member.user.fullName}</span>
+                          {member.userId === currentUser.id && (
+                            <span className="px-2 py-0.5 bg-primary/10 text-primary text-[10px] font-black rounded-full uppercase tracking-widest">Bạn</span>
+                          )}
+                        </div>
+                        <p className="text-xs text-on-surface-variant font-medium opacity-70">{member.user.email}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      {isPO && member.userId !== currentUser.id && (
+                        <button 
+                          onClick={() => handleKick(member.userId, member.user.fullName)}
+                          disabled={updatingId === member.userId}
+                          className="p-2 text-error hover:bg-error/10 rounded-xl transition-all"
+                          title="Kick thành viên"
+                        >
+                          <span className="material-symbols-outlined text-lg">person_remove</span>
+                        </button>
+                      )}
+
+                      {isPO && member.userId !== currentUser.id ? (
+                        <div className="relative">
+                          <select
+                            value={member.role}
+                            disabled={updatingId === member.userId}
+                            onChange={(e) => handleRoleChange(member.userId, e.target.value)}
+                            className="appearance-none bg-surface-container px-4 py-2 pr-10 rounded-xl text-[11px] font-black text-on-surface-variant border-none focus:ring-2 focus:ring-primary/20 outline-none cursor-pointer transition-all uppercase tracking-widest"
+                          >
+                            {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                          </select>
+                          <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-sm pointer-events-none opacity-50 text-primary">expand_more</span>
+                        </div>
+                      ) : (
+                        <span className={`px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest ${ROLE_STYLE[member.role]}`}>
+                          {member.role}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </main>
     </div>
   );
-};
-
-function avatarColor(name) {
-  const colors = ['#0052CC', '#00875A', '#6554C0', '#FF5630', '#FF8B00', '#00B8D9'];
-  const idx = (name?.charCodeAt(0) || 0) % colors.length;
-  return colors[idx];
 }
-
-const st = {
-  page: { minHeight: "100vh", background: "#F4F5F7", fontFamily: "'Segoe UI', -apple-system, sans-serif" },
-  nav: {
-    background: "#0052CC", height: 56, display: "flex", alignItems: "center",
-    justifyContent: "space-between", padding: "0 24px", position: "sticky", top: 0, zIndex: 100,
-    boxShadow: "0 2px 8px rgba(0,52,140,0.3)",
-  },
-  navLeft: { display: "flex", alignItems: "center", gap: 12 },
-  logoWrap: { display: "flex", alignItems: "center", gap: 8 },
-  logoIcon: {
-    width: 32, height: 32, borderRadius: 8, background: "rgba(255,255,255,0.2)",
-    display: "flex", alignItems: "center", justifyContent: "center",
-  },
-  logoText: { color: "#fff", fontWeight: 700, fontSize: 16 },
-  backBtn: {
-    background: "rgba(255,255,255,0.15)", color: "#fff",
-    border: "1px solid rgba(255,255,255,0.3)", borderRadius: 6,
-    padding: "6px 14px", fontSize: 13, cursor: "pointer", fontWeight: 500,
-  },
-  main: { maxWidth: 900, margin: "0 auto", padding: "32px 24px" },
-  breadcrumb: { display: "flex", alignItems: "center", gap: 8, marginBottom: 24 },
-  breadcrumbLink: { fontSize: 14, color: "#0052CC", cursor: "pointer", fontWeight: 500 },
-  breadcrumbSep: { color: "#6B778C", fontSize: 14 },
-  breadcrumbCurrent: { fontSize: 14, color: "#6B778C" },
-  card: {
-    background: "#fff", borderRadius: 10, padding: "32px",
-    boxShadow: "0 1px 4px rgba(9,30,66,0.1), 0 0 0 1px rgba(9,30,66,0.06)",
-  },
-  cardTop: { display: "flex", alignItems: "center", gap: 16, marginBottom: 24 },
-  cardIcon: { fontSize: 36 },
-  cardTitle: { fontSize: 22, fontWeight: 700, color: "#172B4D", margin: "0 0 4px" },
-  cardSubtitle: { fontSize: 14, color: "#6B778C", margin: 0 },
-  memberCount: {
-    display: "flex", flexDirection: "column", alignItems: "center",
-    background: "#F4F5F7", borderRadius: 8, padding: "10px 16px",
-  },
-  memberCountNum: { fontSize: 24, fontWeight: 700, color: "#0052CC" },
-  memberCountLabel: { fontSize: 11, color: "#6B778C", textTransform: "uppercase", letterSpacing: 0.5 },
-  warningBox: {
-    background: "#FFFAE6", border: "1px solid #FFE380", borderRadius: 6,
-    padding: "10px 14px", marginBottom: 16, color: "#172B4D",
-    fontSize: 14, display: "flex", alignItems: "center", gap: 8,
-  },
-  errorBox: {
-    background: "#FFEBE6", border: "1px solid #FF8F73", borderRadius: 6,
-    padding: "10px 14px", marginBottom: 16, color: "#BF2600",
-    fontSize: 14, display: "flex", alignItems: "center", gap: 8,
-  },
-  successBox: {
-    background: "#E3FCEF", border: "1px solid #57D9A3", borderRadius: 6,
-    padding: "10px 14px", marginBottom: 16, color: "#006644",
-    fontSize: 14, display: "flex", alignItems: "center", gap: 8,
-  },
-  loadingWrap: { display: "flex", flexDirection: "column", alignItems: "center", gap: 16, padding: "60px 0" },
-  spinner: {
-    width: 36, height: 36, borderRadius: "50%",
-    border: "3px solid #DFE1E6", borderTopColor: "#0052CC",
-    animation: "spin 0.8s linear infinite",
-  },
-  emptyState: { display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: "48px 0" },
-  table: { borderRadius: 8, overflow: "hidden", border: "1px solid #DFE1E6" },
-  tableHeader: {
-    display: "flex", background: "#F4F5F7",
-    padding: "12px 16px", borderBottom: "1px solid #DFE1E6",
-  },
-  th: { fontSize: 12, fontWeight: 700, color: "#6B778C", textTransform: "uppercase", letterSpacing: 0.5 },
-  tableRow: { display: "flex", padding: "14px 16px", borderBottom: "1px solid #F4F5F7", alignItems: "center" },
-  td: { display: "flex", alignItems: "center" },
-  memberInfo: { display: "flex", alignItems: "center", gap: 10 },
-  avatar: {
-    width: 32, height: 32, borderRadius: "50%", color: "#fff",
-    fontWeight: 700, fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center",
-    flexShrink: 0,
-  },
-  memberName: { fontSize: 14, fontWeight: 600, color: "#172B4D", display: "flex", alignItems: "center", gap: 6 },
-  youBadge: {
-    fontSize: 11, background: "#DEEBFF", color: "#0052CC",
-    borderRadius: 4, padding: "2px 6px", fontWeight: 600,
-  },
-  roleBadge: {
-    fontSize: 12, fontWeight: 700, borderRadius: 4,
-    padding: "3px 8px", letterSpacing: 0.3,
-  },
-  select: {
-    padding: "6px 10px", borderRadius: 6, border: "2px solid #DFE1E6",
-    fontSize: 13, color: "#172B4D", background: "#fff",
-    cursor: "pointer", fontFamily: "inherit", outline: "none",
-  },
-};
-
-export default ManageMembers;

@@ -19,10 +19,12 @@ function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/userstory/:id" element={<UserStoryDetail />} />
         <Route path="/create-project" element={<CreateProject />} />
+        <Route path="/projects/:projectId/backlog" element={<Backlog />} />
+        <Route path="/projects/:projectId/board" element={<BoardPage />} />
+        <Route path="/projects/:projectId/members" element={<ManageMembers />} />
+        <Route path="/projects/:id/edit" element={<EditProject />} />
         <Route path="/backlog" element={<Backlog />} />
         <Route path="/board" element={<BoardPage />} />
-        <Route path="/projects/:id/edit" element={<EditProject />} />
-        <Route path="/projects/:projectId/members" element={<ManageMembers />} />
       </Routes>
     </Router>
   );

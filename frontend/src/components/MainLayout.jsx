@@ -2,7 +2,7 @@ import Sidebar from "./Sidebar";
 import TopBar from "./TopBar";
 import { SidebarProvider, useSidebar } from "../context/SidebarContext";
 
-function MainLayoutContent({ children, activePage, header, showHeader = true }) {
+function MainLayoutContent({ children, activePage, header, showHeader = true, projectId }) {
   const { isOpen, close, toggle } = useSidebar();
 
   return (
@@ -12,6 +12,7 @@ function MainLayoutContent({ children, activePage, header, showHeader = true }) 
         activePage={activePage} 
         isOpen={isOpen} 
         onClose={close} 
+        projectId={projectId}
       />
 
       {/* Main Content Area */}

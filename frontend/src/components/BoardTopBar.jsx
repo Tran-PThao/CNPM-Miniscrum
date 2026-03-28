@@ -1,7 +1,19 @@
+import { useState } from "react";
 import { useSidebar } from "../context/SidebarContext";
+import { useNavigate } from "react-router-dom";
 
-export default function BoardTopBar({ timeRemaining = "4 days 12 hours remaining" }) {
+export default function BoardTopBar({ timeRemaining = "4 days 12 hours remaining", projectId }) {
   const { toggle } = useSidebar();
+  const navigate = useNavigate();
+  const [showMenu, setShowMenu] = useState(false);
+
+  const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    navigate('/login');
+  };
 
   return (
     <header className="flex justify-between items-center w-full px-4 md:px-8 h-16 sticky top-0 bg-[#f8f9fb]/80 backdrop-blur-xl z-30 border-b border-outline-variant/10">
@@ -21,25 +33,70 @@ export default function BoardTopBar({ timeRemaining = "4 days 12 hours remaining
 
       {/* Right: Actions + Avatar */}
       <div className="flex items-center gap-4 md:gap-6">
+        {/* Nút Manage Team mới */}
+        {projectId && (
+          <button 
+            onClick={() => navigate(`/projects/${projectId}/members`)}
+            className="p-2.5 rounded-xl bg-primary text-on-primary hover:scale-[0.98] shadow-md transition-all flex items-center gap-2 font-bold text-xs"
+            title="Quản lý thành viên"
+          >
+            <span className="material-symbols-outlined text-lg">group_add</span>
+            <span className="hidden lg:inline">Quản lý Team</span>
+          </button>
+        )}
+
         <div className="hidden sm:flex items-center gap-2">
           <button className="p-2 text-on-surface-variant hover:bg-surface-container-high rounded-full transition-colors">
             <span className="material-symbols-outlined">notifications</span>
           </button>
-          <button className="p-2 text-on-surface-variant hover:bg-surface-container-high rounded-full transition-colors hidden md:block">
-            <span className="material-symbols-outlined">help</span>
-          </button>
         </div>
 
-        <button className="bg-gradient-to-br from-primary to-primary-container text-on-primary px-4 md:px-6 py-1.5 md:py-2 rounded-full font-['Manrope'] font-bold text-xs md:text-sm shadow-md transition-all active:scale-95 hover:opacity-90">
+        <button className="bg-gradient-to-br from-primary-container to-surface text-primary border border-primary/20 px-4 md:px-6 py-1.5 md:py-2 rounded-full font-['Manrope'] font-bold text-xs md:text-sm shadow-sm transition-all active:scale-95 hover:bg-primary/5">
           Complete <span className="hidden sm:inline">Sprint</span>
         </button>
 
-        <div className="flex items-center gap-3 ml-1 md:ml-2 border-l border-outline-variant/30 pl-3 md:pl-6">
-          <img
-            alt="User profile avatar"
-            className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-surface-container-high object-cover"
-            src="https://lh3.googleusercontent.com/aida-public/AB6AXuBsTed542EyBOCekczOuZyJ1fkxfiuXYu5_PC8lnGHH4zOPxa0vrEwR3moZpG11kRuCfVFi0KjdX8BHCVEY9SzyHNQx8HH5s-RckBvpNTk5e28vdXjcWkd_LSSFFZRqTa6GC2t7ZpMENRNKzB0TTJ0Fz9fBB1fuT8o0pSPwBjJ_0MZ3qL-pa7czTixU6iRv9f5wWn1yjJd9aBkkCjj3UPkp7Na-HpGYBCnN7gHwYdr4BpkoPRQEMsk47chMTYVcomH6vsC5VEHWOHw"
-          />
+        <div className="h-8 w-[1px] bg-outline-variant mx-1 md:mx-2"></div>
+
+        <div className="relative">
+          <button 
+            onClick={() => setShowMenu(!showMenu)}
+            className="group flex items-center gap-2 p-1 pr-3 rounded-full border border-outline-variant/10 hover:bg-surface-container-high transition-all"
+          >
+            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary font-bold text-xs shadow-sm">
+              {currentUser.fullName?.charAt(0).toUpperCase() || 'U'}
+            </div>
+            <span className="hidden md:block text-xs font-bold text-on-surface opacity-80">{currentUser.fullName}</span>
+            <span className="material-symbols-outlined text-sm text-on-surface-variant group-hover:rotate-180 transition-transform">expand_more</span>
+          </button>
+
+          {/* User Menu Dropdown */}
+          {showMenu && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)}></div>
+              <div className="absolute right-0 mt-3 w-56 bg-white rounded-3xl shadow-2xl border border-outline-variant/10 py-3 z-50 animate-in fade-in slide-in-from-top-3 duration-200">
+                <div className="px-6 py-4 border-b border-outline-variant/10 mb-2">
+                  <div className="text-sm font-bold text-on-surface">{currentUser.fullName}</div>
+                  <div className="text-[10px] font-medium text-on-surface-variant opacity-60">ID: {currentUser.id?.slice(-8)}</div>
+                </div>
+                
+                <button 
+                  onClick={() => navigate('/settings')}
+                  className="w-full flex items-center gap-4 px-6 py-3 text-sm font-medium text-on-surface-variant hover:bg-primary/5 hover:text-primary transition-all text-left"
+                >
+                  <span className="material-symbols-outlined text-lg">settings</span>
+                  <span>Cài đặt cá nhân</span>
+                </button>
+
+                <button 
+                  onClick={handleLogout}
+                  className="w-full flex items-center gap-4 px-6 py-3 text-sm font-bold text-error hover:bg-error/5 transition-all text-left mt-2"
+                >
+                  <span className="material-symbols-outlined text-lg">logout</span>
+                  <span>Đăng xuất</span>
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </header>
