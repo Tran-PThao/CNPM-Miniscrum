@@ -266,12 +266,12 @@ app.post("/api/project/:projectId/members", async (req, res) => {
   }
 });
 
-// Helper kiểm tra quyền PO hoặc SM trong dự án (chỉ khi đã chấp nhận lời mời)
+// Helper kiểm tra quyền PO hoặc SM trong dự án
 const checkPOorSM = async (userId, projectId) => {
   const member = await prisma.projectMember.findUnique({
     where: { userId_projectId: { userId, projectId } },
   });
-  return member && (member.role === "PO" || member.role === "SM") && member.status === "ACCEPTED";
+  return member && (member.role === "PO" || member.role === "SM");
 };
 
 // TẠO USER STORY - Đã hỗ trợ tags
@@ -293,7 +293,9 @@ app.post("/api/userstory", authMiddleware, async (req, res) => {
         status,
         assigneeId: assigneeId || null,
         storyPoints: storyPoints ? parseInt(storyPoints) : null,
-        tags: JSON.stringify(tags),        // ← Lưu tags thành string
+        tags: JSON.stringify(tags),
+        backlogOrder: req.body.backlogOrder || 0,
+        sprintId: req.body.sprintId || null,
       },
       include: {
         assignee: { select: { id: true, fullName: true } }
@@ -322,6 +324,28 @@ app.delete("/api/userstory/:id", authMiddleware, async (req, res) => {
     res.json({ message: "Xóa User Story thành công" });
   } catch (err) {
     res.status(500).json({ error: "Lỗi xóa User Story" });
+  }
+});
+
+// US-009: REORDER USER STORIES (PHẢI ĐẶT TRƯỚC /:id để tránh Express match 'reorder' vào :id)
+app.patch("/api/userstory/reorder", authMiddleware, async (req, res) => {
+  const { stories } = req.body; // Array of { id, backlogOrder }
+  if (!stories || !Array.isArray(stories)) {
+    return res.status(400).json({ error: "Dữ liệu stories không hợp lệ" });
+  }
+
+  try {
+    const updates = stories.map(s =>
+      prisma.userStory.update({
+        where: { id: s.id },
+        data: { backlogOrder: parseInt(s.backlogOrder, 10) }
+      })
+    );
+    await prisma.$transaction(updates);
+    res.json({ message: "Sắp xếp lại thành công" });
+  } catch (err) {
+    console.error("Lỗi reorder DB:", err);
+    res.status(500).json({ error: "Lỗi khi sắp xếp lại User Stories" });
   }
 });
 
@@ -361,7 +385,9 @@ app.patch("/api/userstory/:id", authMiddleware, async (req, res) => {
         priority: priority !== undefined ? priority : undefined,
         assigneeId: assigneeId !== undefined ? assigneeId : undefined,
         storyPoints: storyPoints !== undefined ? (parseInt(storyPoints) || null) : undefined,
-        
+        tags: req.body.tags !== undefined ? JSON.stringify(req.body.tags) : undefined,
+        sprintId: req.body.sprintId !== undefined ? req.body.sprintId : undefined,
+        backlogOrder: req.body.backlogOrder !== undefined ? req.body.backlogOrder : undefined,
       },
     });
     res.json({ message: "Cập nhật thành công", story: updated });
@@ -406,12 +432,103 @@ app.get("/api/project/:projectId/userstories", async (req, res) => {
   try {
     const stories = await prisma.userStory.findMany({
       where: { projectId },
-      orderBy: { title: "asc" },
+      orderBy: [
+        { backlogOrder: "asc" },
+        { title: "asc" }
+      ],
       include: { assignee: { select: { fullName: true, email: true } } }
     });
+    // Tránh browser cache để loadData() luôn lấy dữ liệu mới nhất
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.json(stories);
   } catch (err) {
     res.status(500).json({ error: "Lỗi khi lấy danh sách User Stories" });
+  }
+});
+
+// (Route /reorder đã được chuyển lên trước /:id ở phía trên)
+
+// US-015: LẤY DANH SÁCH SPRINT
+app.get("/api/project/:projectId/sprints", authMiddleware, async (req, res) => {
+  const { projectId } = req.params;
+  try {
+    const sprints = await prisma.sprint.findMany({
+      where: { projectId },
+      orderBy: { createdAt: "asc" },
+      include: { stories: true }
+    });
+    res.json(sprints);
+  } catch (err) {
+    res.status(500).json({ error: "Lỗi khi lấy danh sách Sprint" });
+  }
+});
+
+// US-016: TẠO SPRINT MỚI
+app.post("/api/project/:projectId/sprints", authMiddleware, async (req, res) => {
+  const { projectId } = req.params;
+  const { name, goal, startDate, endDate } = req.body;
+  try {
+    const hasPermission = await checkPOorSM(req.user.userId, projectId);
+    if (!hasPermission) {
+      return res.status(403).json({ error: "Chỉ Scrum Master hoặc PO mới được tạo Sprint." });
+    }
+
+    const sprint = await prisma.sprint.create({
+      data: {
+        name,
+        goal,
+        startDate: startDate ? new Date(startDate) : null,
+        endDate: endDate ? new Date(endDate) : null,
+        projectId
+      }
+    });
+    res.status(201).json(sprint);
+  } catch (err) {
+    res.status(400).json({ error: "Lỗi khi tạo Sprint: " + err.message });
+  }
+});
+
+// US-017: CHI TIẾT SPRINT
+app.get("/api/sprint/:id", authMiddleware, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const sprint = await prisma.sprint.findUnique({
+      where: { id },
+      include: { stories: { include: { assignee: { select: { fullName: true } } } } }
+    });
+    if (!sprint) return res.status(404).json({ error: "Không tìm thấy Sprint" });
+    res.json(sprint);
+  } catch (err) {
+    res.status(500).json({ error: "Lỗi khi lấy chi tiết Sprint" });
+  }
+});
+
+// US-049: CẬP NHẬT SPRINT (Start Sprint, Complete Sprint)
+app.patch("/api/sprint/:id", authMiddleware, async (req, res) => {
+  const { id } = req.params;
+  const { name, goal, startDate, endDate, status } = req.body;
+  try {
+    const sprint = await prisma.sprint.findUnique({ where: { id } });
+    if (!sprint) return res.status(404).json({ error: "Không tìm thấy Sprint" });
+
+    const hasPermission = await checkPOorSM(req.user.userId, sprint.projectId);
+    if (!hasPermission) {
+      return res.status(403).json({ error: "Chỉ Scrum Master hoặc PO mới được cập nhật Sprint." });
+    }
+
+    const updated = await prisma.sprint.update({
+      where: { id },
+      data: {
+        name: name !== undefined ? name : undefined,
+        goal: goal !== undefined ? goal : undefined,
+        startDate: startDate ? new Date(startDate) : undefined,
+        endDate: endDate ? new Date(endDate) : undefined,
+        status: status !== undefined ? status : undefined,
+      }
+    });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: "Lỗi khi cập nhật Sprint: " + err.message });
   }
 });
 // Lấy vai trò của người dùng hiện tại trong dự án

@@ -1,61 +1,72 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "sqlite"
-  url      = "file:./dev.db" 
+  url      = "file:./dev.db"
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  fullName  String?
-  role      String   @default("MEMBER")
+  id              String          @id @default(cuid())
+  email           String          @unique
+  password        String
+  fullName        String?
+  role            String          @default("MEMBER")
   createdAt       DateTime        @default(now())
   projects        ProjectMember[]
   assignedStories UserStory[]     @relation("AssignedStories")
 }
 
 model Project {
-  id          String   @id @default(cuid())
+  id          String          @id @default(cuid())
   name        String
   description String?
   goal        String?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime        @default(now())
   members     ProjectMember[]
   userStories UserStory[]
+  sprints     Sprint[]
 }
 
 model ProjectMember {
-  id        String @id @default(cuid())
+  id        String  @id @default(cuid())
   userId    String
   projectId String
   role      String
-  status    String @default("ACCEPTED") // PENDING, ACCEPTED, DECLINED
-  user      User   @relation(fields: [userId], references: [id])
+  status    String  @default("ACCEPTED")
   project   Project @relation(fields: [projectId], references: [id])
+  user      User    @relation(fields: [userId], references: [id])
 
   @@unique([userId, projectId])
 }
 
+model Sprint {
+  id        String      @id @default(cuid())
+  name      String
+  goal      String?
+  startDate DateTime?
+  endDate   DateTime?
+  status    String      @default("PLANNED") // PLANNED, ACTIVE, COMPLETED
+  projectId String
+  project   Project     @relation(fields: [projectId], references: [id])
+  stories   UserStory[]
+  createdAt DateTime    @default(now())
+}
+
 model UserStory {
-  id            String   @id @default(cuid())
-  title         String
-  description   String?
-  storyPoints   Int?
-  status        String   @default("TODO")
-  priority      String   @default("MEDIUM")
-  tags          String   @default("[]")     // Lưu dạng JSON string
-  projectId     String
-  assigneeId    String?
-  
-  project       Project  @relation(fields: [projectId], references: [id])
-  assignee      User?    @relation("AssignedStories", fields: [assigneeId], references: [id])
+  id           String  @id @default(cuid())
+  title        String
+  description  String?
+  storyPoints  Int?
+  status       String  @default("TODO")
+  priority     String  @default("MEDIUM")
+  tags         String  @default("[]")
+  projectId    String
+  assigneeId   String?
+  sprintId     String?
+  backlogOrder Int     @default(0)
+  assignee     User?   @relation("AssignedStories", fields: [assigneeId], references: [id])
+  project      Project @relation(fields: [projectId], references: [id])
+  sprint       Sprint? @relation(fields: [sprintId], references: [id])
 }
