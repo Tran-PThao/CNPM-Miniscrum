@@ -8,6 +8,10 @@ export default function ProductBacklog({
   onSearchChange,
   filterPriority = "ALL",
   onFilterPriorityChange,
+  filterStatus = "ALL",
+  onFilterStatusChange,
+  filterTag = "ALL",
+  onFilterTagChange,
   onAddStory,
   onAssignStory,
   onEdit,
@@ -21,9 +25,21 @@ export default function ProductBacklog({
     id: "backlog-droppable-area",
   });
 
+  // Lấy tất cả tag duy nhất từ stories (Filter Tag động)
+  const allTags = [...new Set(
+    stories.flatMap(story => {
+      if (!story.tags) return [];
+      const tagsArray = Array.isArray(story.tags) 
+        ? story.tags 
+        : JSON.parse(story.tags || '[]');
+      return tagsArray;
+    })
+  )].sort();
+
   return (
     <section>
-      <div className="flex items-center justify-between mb-6">
+      {/* Header với Filter động */}
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
         <div className="flex items-center gap-3">
           <h3 className="font-['Manrope'] font-bold text-xl text-on-surface">Product Backlog</h3>
           <span className="text-on-surface-variant text-sm font-medium">
@@ -31,7 +47,9 @@ export default function ProductBacklog({
           </span>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          
+          {/* Search */}
           <div className="relative w-80">
             <input
               type="text"
@@ -43,20 +61,48 @@ export default function ProductBacklog({
             <span className="material-symbols-outlined absolute left-3.5 top-3 text-on-surface-variant text-xl">search</span>
           </div>
 
+          {/* Filter Priority */}
           <select 
             value={filterPriority}
             onChange={(e) => onFilterPriorityChange(e.target.value)}
-            className="bg-surface-container-high px-4 py-2.5 rounded-xl border border-outline-variant focus:border-primary outline-none cursor-pointer"
+            className="bg-surface-container-high px-4 py-2.5 rounded-xl border border-outline-variant focus:border-primary outline-none cursor-pointer min-w-[140px]"
           >
             <option value="ALL">Tất cả ưu tiên</option>
             <option value="HIGH">HIGH</option>
             <option value="MEDIUM">MEDIUM</option>
             <option value="LOW">LOW</option>
           </select>
+
+          {/* Filter Status */}
+          <select 
+            value={filterStatus}
+            onChange={(e) => onFilterStatusChange(e.target.value)}
+            className="bg-surface-container-high px-4 py-2.5 rounded-xl border border-outline-variant focus:border-primary outline-none cursor-pointer min-w-[140px]"
+          >
+            <option value="ALL">Tất cả trạng thái</option>
+            <option value="BACKLOG">Backlog</option>
+            <option value="TODO">Todo</option>
+            <option value="IN_PROGRESS">In Progress</option>
+            <option value="DONE">Done</option>
+          </select>
+
+          {/* Filter Tag - Động theo dữ liệu */}
+          <select 
+            value={filterTag}
+            onChange={(e) => onFilterTagChange(e.target.value)}
+            className="bg-surface-container-high px-4 py-2.5 rounded-xl border border-outline-variant focus:border-primary outline-none cursor-pointer min-w-[140px]"
+          >
+            <option value="ALL">Tất cả nhãn</option>
+            {allTags.map(tag => (
+              <option key={tag} value={tag}>
+                {tag}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
-      {/* Khu vực kéo thả - quan trọng */}
+      {/* Khu vực kéo thả */}
       <div 
         ref={setNodeRef} 
         className="min-h-[400px] p-3 border-2 border-dashed border-transparent hover:border-primary/30 rounded-3xl transition-all"
@@ -91,6 +137,7 @@ export default function ProductBacklog({
         </SortableContext>
       </div>
 
+      {/* Nút thêm */}
       {isManagement && (
         <div
           onClick={onAddStory}
