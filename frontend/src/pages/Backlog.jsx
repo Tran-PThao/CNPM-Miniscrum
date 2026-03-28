@@ -26,6 +26,7 @@ export default function Backlog() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterPriority, setFilterPriority] = useState("ALL");
   const [filterStatus, setFilterStatus] = useState("ALL");
+  const [filterTag, setFilterTag] = useState("ALL");
 
   const [stories, setStories] = useState([]);
   const [sprints, setSprints] = useState([]);
@@ -101,7 +102,18 @@ export default function Backlog() {
       (story.description && story.description.toLowerCase().includes(searchTerm.toLowerCase()))
     )
     .filter(story => filterPriority === "ALL" || story.priority === filterPriority)
-    .filter(story => filterStatus === "ALL" || story.status === filterStatus);
+    .filter(story => filterStatus === "ALL" || story.status === filterStatus)
+    .filter(story => {
+      if (filterTag === "ALL") return true;
+      
+      const storyTags = Array.isArray(story.tags) 
+        ? story.tags 
+        : (typeof story.tags === 'string' 
+            ? JSON.parse(story.tags || '[]') 
+            : []);
+      
+      return storyTags.includes(filterTag);
+    });
 
   // ====================== DRAG & DROP (US-009) ======================
   
@@ -337,6 +349,10 @@ export default function Backlog() {
             onSearchChange={setSearchTerm}
             filterPriority={filterPriority}
             onFilterPriorityChange={setFilterPriority}
+            filterStatus={filterStatus}
+            onFilterStatusChange={setFilterStatus}
+            filterTag={filterTag}
+            onFilterTagChange={setFilterTag}  
             onAddStory={handleAddStory} 
             onAssignStory={handleAssignStory} 
             onEdit={handleEditStory}
@@ -416,4 +432,4 @@ export default function Backlog() {
       />
     </MainLayout>
   );
-}
+}
