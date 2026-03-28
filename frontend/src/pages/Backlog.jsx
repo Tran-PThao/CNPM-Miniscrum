@@ -1,14 +1,24 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+
+// === Thêm thư viện Drag & Drop ===
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+
 import MainLayout from "../components/MainLayout";
 import BacklogHeader from "../components/BacklogHeader";
 import SprintSection from "../components/SprintSection";
 import ProductBacklog from "../components/ProductBacklog";
-import api, { getStoriesByProject, createUserStory } from "../services/api";
+import api, { getStoriesByProject, createUserStory, updateUserStory } from "../services/api";
 import CreateStoryModal from "../components/CreateStoryModal";
 
 export default function Backlog() {
   const { projectId } = useParams();
+  
+  // === State cũ giữ nguyên (US-007 & US-008) ===
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterPriority, setFilterPriority] = useState("ALL");
+  const [filterStatus, setFilterStatus] = useState("ALL");
+
   const [stories, setStories] = useState([]);
   const [project, setProject] = useState(null);
   const [userRole, setUserRole] = useState("MEMBER");
@@ -16,21 +26,18 @@ export default function Backlog() {
   const [editingStory, setEditingStory] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+
   const navigate = useNavigate();
 
-  useEffect(() => {
-    // Listen for custom event from Sidebar
-    const handleOpenModal = () => { setEditingStory(null); setIsModalOpen(true); };
-    window.addEventListener("open-create-story-modal", handleOpenModal);
-    
-    // Check URL params for action
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("action") === "create") {
-      setEditingStory(null);
-      setIsModalOpen(true);
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
+  // Cấu hình Drag & Drop
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 }, // kéo một khoảng mới bắt đầu
+    })
+  );
 
+  // Load data
+  useEffect(() => {
     if (!projectId) {
       api.get("/project").then((res) => {
         if (res.data && Array.isArray(res.data) && res.data.length > 0) {
@@ -39,27 +46,22 @@ export default function Backlog() {
           navigate("/dashboard");
         }
       }).catch(() => navigate("/login"));
+      return;
     }
 
-    return () => window.removeEventListener("open-create-story-modal", handleOpenModal);
-  }, [navigate, projectId]);
-
-  useEffect(() => {
-    if (projectId) {
-      setIsLoading(true);
-      Promise.all([
-        getStoriesByProject(projectId),
-        api.get(`/project/${projectId}`),
-        api.get(`/project/${projectId}/role`)
-      ]).then(([storiesRes, projectRes, roleRes]) => {
-        setStories(Array.isArray(storiesRes.data) ? storiesRes.data : []);
-        setProject(projectRes.data);
-        setUserRole(roleRes.data.role);
-      }).catch(err => {
-        console.error("Lỗi tải dữ liệu:", err);
-      }).finally(() => setIsLoading(false));
-    }
-  }, [projectId]);
+    setIsLoading(true);
+    Promise.all([
+      getStoriesByProject(projectId),
+      api.get(`/project/${projectId}`),
+      api.get(`/project/${projectId}/role`)
+    ]).then(([storiesRes, projectRes, roleRes]) => {
+      setStories(Array.isArray(storiesRes.data) ? storiesRes.data : []);
+      setProject(projectRes.data);
+      setUserRole(roleRes.data.role);
+    }).catch(err => {
+      console.error("Lỗi tải dữ liệu:", err);
+    }).finally(() => setIsLoading(false));
+  }, [projectId, navigate]);
 
   const loadStories = async () => {
     try {
@@ -70,35 +72,91 @@ export default function Backlog() {
     }
   };
 
+  // === Lọc stories cho Product Backlog (giữ nguyên US-007 + US-008) ===
+  const backlogStories = stories.filter(s => s.status === "BACKLOG");
+
+  const filteredBacklogStories = backlogStories
+    .filter(story => 
+      story.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (story.description && story.description.toLowerCase().includes(searchTerm.toLowerCase()))
+    )
+    .filter(story => filterPriority === "ALL" || story.priority === filterPriority)
+    .filter(story => filterStatus === "ALL" || story.status === filterStatus);
+
+  // ====================== DRAG & DROP (US-009) ======================
+  
+  const handleDragEnd = async (event) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const activeId = active.id.toString();
+    const overId = over.id.toString();
+
+    const activeStory = stories.find(s => s.id === activeId);
+    if (!activeStory) return;
+
+    const isActiveInBacklog = activeStory.status === "BACKLOG";
+
+    // 1. Kéo trong cùng Product Backlog (sắp xếp thứ tự)
+    if (isActiveInBacklog && overId === "backlog-droppable-area") {
+      console.log(`Kéo sắp xếp trong Backlog: ${activeStory.title}`);
+      // Hiện tại chưa lưu thứ tự vào DB, chỉ log để test
+      // Sau này sẽ thêm logic lưu order
+      return;
+    }
+
+    // 2. Kéo từ Product Backlog sang Sprint
+    if (isActiveInBacklog && overId !== "backlog-droppable-area") {
+      console.log(`Đưa vào Sprint: ${activeStory.title}`);
+      try {
+        await api.patch(`/userstory/${activeId}`, { status: "TODO" });
+        await loadStories();
+      } catch (err) {
+        console.error(err);
+        alert("Không thể đưa vào Sprint");
+      }
+      return;
+    }
+
+    // 3. Kéo từ Sprint về Product Backlog
+    if (!isActiveInBacklog && overId === "backlog-droppable-area") {
+      console.log(`Đưa về Backlog: ${activeStory.title}`);
+      try {
+        await api.patch(`/userstory/${activeId}`, { status: "BACKLOG" });
+        await loadStories();
+      } catch (err) {
+        console.error(err);
+        alert("Không thể đưa về Backlog");
+      }
+    }
+  };
+
+  // ====================== Các hàm cũ giữ nguyên ======================
   const handleModalSubmit = async (formData) => {
     setIsSubmitting(true);
     try {
       if (editingStory) {
-        await api.patch(`/userstory/${editingStory.id}`, formData);
+        await updateUserStory(editingStory.id, formData);
       } else {
-        await createUserStory({ ...formData, projectId, status: "BACKLOG" });
+        await createUserStory({
+          ...formData,
+          projectId,
+          status: "BACKLOG"
+        });
       }
       await loadStories();
       setIsModalOpen(false);
       setEditingStory(null);
-    } catch (e) {
-      window.alert(e.response?.data?.error || "Lỗi xử lý user story!");
+    } catch (error) {
+      console.error("Lỗi khi lưu User Story:", error);
+      window.alert(error.response?.data?.message || error.response?.data?.error || "Lỗi khi lưu User Story!");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleUpdateStatus = async (storyId, newStatus) => {
-    try {
-      await api.patch(`/userstory/${storyId}`, { status: newStatus });
-      await loadStories();
-    } catch (e) {
-      console.error("Lỗi cập nhật trạng thái:", e);
-    }
-  };
-
   const handleDeleteStory = async (storyId) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa User Story này? Hành động này không thể hoàn tác.")) return;
+    if (!window.confirm("Bạn có chắc chắn muốn xóa User Story này?")) return;
     try {
       await api.delete(`/userstory/${storyId}`);
       await loadStories();
@@ -118,31 +176,23 @@ export default function Backlog() {
   };
 
   const handleAssignStory = async (storyId) => {
-    const email = window.prompt("Nhập Email của người phụ trách (VD: admin@miniscrum.com):");
+    const email = window.prompt("Nhập Email của người phụ trách:");
     if (!email) return;
     try {
       await api.patch(`/userstory/${storyId}/assign`, { email });
       await loadStories();
     } catch (e) {
-      window.alert(e.response?.data?.error || "Lỗi assign. Kiểm tra lại email.");
+      window.alert(e.response?.data?.error || "Lỗi assign!");
     }
   };
 
-  // Chia story thành 2 phần: Backlog (status === 'BACKLOG') và Sprint (còn lại)
-  const backlogStories = stories.filter(s => s.status === "BACKLOG");
-  const sprintStories = stories.filter(s => s.status !== "BACKLOG");
-
-  // Tính toán % tiến độ dựa trên số lượng story DONE trong sprint
-  const doneStories = sprintStories.filter(s => s.status === "DONE");
-  const progressPercent = sprintStories.length > 0 
-    ? Math.round((doneStories.length / sprintStories.length) * 100) 
-    : 0;
-
-  if (isLoading) return (
-    <div className="min-h-screen flex items-center justify-center bg-surface">
-      <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-    </div>
-  );
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-surface">
+        <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <MainLayout 
@@ -150,27 +200,45 @@ export default function Backlog() {
       header={<BacklogHeader projectId={projectId} projectName={project?.name} />}
       projectId={projectId}
     >
-      <div className="space-y-6 md:space-y-10 animate-in fade-in duration-700">
-        <SprintSection 
-          stories={sprintStories} 
-          progress={progressPercent}
-          onMoveToBacklog={(id) => handleUpdateStatus(id, "BACKLOG")}
-          onAssign={handleAssignStory}
-          onEdit={handleEditStory}
-          onDelete={handleDeleteStory}
-          userRole={userRole}
-        />
-        
-        <ProductBacklog 
-          stories={backlogStories} 
-          onAddStory={handleAddStory} 
-          onAssignStory={handleAssignStory} 
-          onEdit={handleEditStory}
-          onDelete={handleDeleteStory}
-          userRole={userRole} 
-          onMoveToSprint={(id) => handleUpdateStatus(id, "TODO")}
-        />
-      </div>
+      {/* Bọc DndContext quanh toàn bộ nội dung */}
+      <DndContext 
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <div className="space-y-6 md:space-y-10">
+          <SprintSection 
+            stories={stories.filter(s => s.status !== "BACKLOG")} 
+            onAssign={handleAssignStory}
+            onEdit={handleEditStory}
+            onDelete={handleDeleteStory}
+            userRole={userRole}
+          />
+          
+          <ProductBacklog 
+            stories={filteredBacklogStories}
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            filterPriority={filterPriority}
+            onFilterPriorityChange={setFilterPriority}
+            onAddStory={handleAddStory} 
+            onAssignStory={handleAssignStory} 
+            onEdit={handleEditStory}
+            onDelete={handleDeleteStory}
+            userRole={userRole} 
+            onMoveToSprint={async (id) => {
+              if (window.confirm("Đưa User Story này vào Sprint hiện tại?")) {
+                try {
+                  await api.patch(`/userstory/${id}`, { status: "TODO" });
+                  await loadStories();
+                } catch (err) {
+                  alert("Có lỗi khi đưa vào Sprint");
+                }
+              }
+            }}
+          />
+        </div>
+      </DndContext>
 
       <CreateStoryModal 
         isOpen={isModalOpen} 

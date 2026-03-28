@@ -4,6 +4,7 @@ const dotenv = require("dotenv");
 const { PrismaClient } = require("@prisma/client");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const userstoryRoutes = require('./routes/userstoryRoutes');
 
 dotenv.config();
 const app = express();
@@ -273,9 +274,10 @@ const checkPOorSM = async (userId, projectId) => {
   return member && (member.role === "PO" || member.role === "SM") && member.status === "ACCEPTED";
 };
 
-// TẠO USER STORY
+// TẠO USER STORY - Đã hỗ trợ tags
 app.post("/api/userstory", authMiddleware, async (req, res) => {
-  const { title, description, projectId, priority, assigneeId, storyPoints } = req.body;
+  const { title, description, projectId, priority = "MEDIUM", status = "BACKLOG", assigneeId, storyPoints, tags = [] } = req.body;
+
   try {
     const hasPermission = await checkPOorSM(req.user.userId, projectId);
     if (!hasPermission) {
@@ -283,11 +285,25 @@ app.post("/api/userstory", authMiddleware, async (req, res) => {
     }
 
     const story = await prisma.userStory.create({
-      data: { title, description, projectId, priority, assigneeId, storyPoints: parseInt(storyPoints) || null },
+      data: {
+        title,
+        description: description || null,
+        projectId,
+        priority,
+        status,
+        assigneeId: assigneeId || null,
+        storyPoints: storyPoints ? parseInt(storyPoints) : null,
+        tags: JSON.stringify(tags),        // ← Lưu tags thành string
+      },
+      include: {
+        assignee: { select: { id: true, fullName: true } }
+      }
     });
-    res.json({ message: "Tạo User Story thành công", story });
+
+    res.status(201).json({ message: "Tạo User Story thành công", story });
   } catch (err) {
-    res.status(400).json({ error: "Lỗi khi tạo User Story" });
+    console.error(err);
+    res.status(400).json({ error: "Lỗi khi tạo User Story: " + err.message });
   }
 });
 
@@ -345,6 +361,7 @@ app.patch("/api/userstory/:id", authMiddleware, async (req, res) => {
         priority: priority !== undefined ? priority : undefined,
         assigneeId: assigneeId !== undefined ? assigneeId : undefined,
         storyPoints: storyPoints !== undefined ? (parseInt(storyPoints) || null) : undefined,
+        
       },
     });
     res.json({ message: "Cập nhật thành công", story: updated });
