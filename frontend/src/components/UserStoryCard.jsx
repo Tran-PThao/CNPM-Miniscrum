@@ -29,8 +29,7 @@ export default function UserStoryCard({
   moveIcon = "arrow_upward",
   moveTitle = "Đưa vào Sprint",
   isSelected = false,
-  onToggleSelect,
-  onAddTask
+  onToggleSelect
 }) {
   const isSprint = variant === "sprint";
   const isManagement = userRole === "PO" || userRole === "SM";
@@ -151,6 +150,7 @@ export default function UserStoryCard({
     >
       {/* Header: ID + Title + Move Button */}
       <div className="flex items-start gap-3">
+        {/* Checkbox for bulk select */}
         {onToggleSelect && (
           <input 
             type="checkbox"
@@ -163,6 +163,7 @@ export default function UserStoryCard({
           />
         )}
 
+        {/* Move icon cho Management */}
         {isManagement && onMove && (
           <button 
             onClick={(e) => { e.stopPropagation(); onMove(id); }}

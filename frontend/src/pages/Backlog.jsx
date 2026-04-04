@@ -61,10 +61,6 @@ export default function Backlog() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedStories, setSelectedStories] = useState([]);
 
-  const [activeTab, setActiveTab] = useState("backlog");   // "backlog" hoặc "taskboard"
-
-  
-
   const navigate = useNavigate();
 
   // Cấu hình Drag & Drop
@@ -356,7 +352,7 @@ const handleDragEnd = async (event) => {
   };
 
   const toggleStorySelection = (storyId) => {
-    setSelectedStories(prev =>
+    setSelectedStories(prev => 
       prev.includes(storyId) ? prev.filter(id => id !== storyId) : [...prev, storyId]
     );
   };
@@ -435,32 +431,46 @@ const handleDragEnd = async (event) => {
         onDragEnd={handleDragEnd}
       >
         <div className="space-y-6 md:space-y-10 pb-20">
-
-          {/* TAB CHUYỂN ĐỔI - Giống Jira */}
-          <div className="flex border-b border-outline-variant mb-6">
-            <button
-              onClick={() => setActiveTab("backlog")}
-              className={`px-6 py-3 font-medium text-sm transition-all border-b-2 flex items-center gap-2 ${
-                activeTab === "backlog" 
-                  ? "border-primary text-primary" 
-                  : "border-transparent hover:text-on-surface"
-              }`}
-            >
-              <span className="material-symbols-outlined">inventory_2</span>
-              Product Backlog
-            </button>
-
-            <button
-              onClick={() => setActiveTab("taskboard")}
-              className={`px-6 py-3 font-medium text-sm transition-all border-b-2 flex items-center gap-2 ${
-                activeTab === "taskboard" 
-                  ? "border-primary text-primary" 
-                  : "border-transparent hover:text-on-surface"
-              }`}
-            >
-              <span className="material-symbols-outlined">view_kanban</span>
-              Task Board
-            </button>
+          {/* TOP: Active Sprints */}
+          <div className="space-y-4">
+            <div className="flex items-center px-2">
+              <h3 className="text-lg font-bold text-primary flex items-center gap-2">
+                <span className="material-symbols-outlined">bolt</span>
+                Current Sprints
+              </h3>
+            </div>
+            
+            {activeSprints.length > 0 ? (
+              activeSprints.map(sprint => (
+                <SprintSection 
+                  key={sprint.id}
+                  sprint={sprint}
+                  stories={stories.filter(s => s.sprintId === sprint.id)} 
+                  onAssign={handleAssignStory}
+                  onEdit={handleEditStory}
+                  onDelete={handleDeleteStory}
+                  onStatusChange={handleSprintStatusChange}
+                  userRole={userRole}
+                  selectedStories={selectedStories}
+                  onToggleSelect={toggleStorySelection}
+                  onSelectAll={handleSelectAll}
+                  onMoveToBacklog={async (id) => {
+                    try {
+                      await updateUserStory(id, { sprintId: null, status: "BACKLOG" });
+                      await loadData();
+                    } catch (err) {
+                      console.error(err);
+                      alert("Không thể rút về Backlog");
+                    }
+                  }}
+                />
+              ))
+            ) : (
+              <div className="p-8 border border-outline-variant/10 rounded-3xl flex flex-col items-center justify-center text-on-surface-variant/40 gap-2 bg-surface-container-low/20">
+                <span className="material-symbols-outlined text-3xl opacity-20">bolt</span>
+                <p className="text-xs font-medium italic">No active sprints. Start one from the planning area below.</p>
+              </div>
+            )}
           </div>
           
           {/* MIDDLE: Product Backlog */}
@@ -578,14 +588,14 @@ const handleDragEnd = async (event) => {
             <span className="material-symbols-outlined text-primary text-2xl">check_circle</span>
             <div>
               <p className="font-bold text-on-surface text-base m-0 leading-tight">Đã chọn {selectedStories.length}</p>
-              <button
+              <button 
                 onClick={() => setSelectedStories([])}
                 className="text-xs text-primary hover:underline m-0 p-0"
               >Bỏ chọn tất cả</button>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <select
+            <select 
               className="bg-surface px-3 py-2 rounded-lg border border-outline-variant text-sm font-medium w-40"
               onChange={(e) => {
                 const val = e.target.value;
@@ -601,7 +611,7 @@ const handleDragEnd = async (event) => {
                 <option key={s.id} value={s.id}>🚀 {s.name}</option>
               ))}
             </select>
-            <button
+            <button 
               onClick={handleBulkDelete}
               className="px-4 py-2 bg-error-container text-on-error-container rounded-lg border border-error/20 flex items-center gap-2 hover:bg-error hover:text-on-error transition-colors text-sm font-bold"
             >
@@ -611,7 +621,7 @@ const handleDragEnd = async (event) => {
         </div>
       )}
 
-      <CreateSprintModal
+      <CreateSprintModal 
         isOpen={isSprintModalOpen}
         onClose={() => setIsSprintModalOpen(false)}
         projectId={projectId}

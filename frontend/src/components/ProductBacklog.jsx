@@ -22,8 +22,7 @@ export default function ProductBacklog({
   userRole,
   selectedStories = [],
   onToggleSelect,
-  onSelectAll,
-  projectId
+  onSelectAll
 }) {
   const isManagement = userRole === "PO" || userRole === "SM";
 
@@ -56,19 +55,20 @@ export default function ProductBacklog({
   return (
     <section>
       <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-3">
           {onSelectAll && (
             <input 
               type="checkbox"
-              className="w-4 h-4 cursor-pointer accent-primary shrink-0"
+              className="w-5 h-5 cursor-pointer accent-primary shrink-0"
               checked={stories.length > 0 && selectedStories.length === stories.length}
               onChange={(e) => onSelectAll(e.target.checked, stories)}
               title="Chọn tất cả trong Backlog"
             />
           )}
-          <h3 className="font-['Manrope'] font-bold text-lg text-on-surface">
-            Product Backlog <span className="text-on-surface-variant text-sm font-medium">({stories.length} items)</span>
-          </h3>
+          <h3 className="font-['Manrope'] font-bold text-xl text-on-surface">Product Backlog</h3>
+          <span className="text-on-surface-variant text-sm font-medium">
+            ({stories.length} items)
+          </span>
         </div>
 
         <div className="flex items-center gap-2 flex-1 justify-end flex-wrap">
@@ -150,7 +150,6 @@ export default function ProductBacklog({
                   moveTitle="Đưa vào Sprint"
                   isSelected={selectedStories.includes(story.id)}
                   onToggleSelect={onToggleSelect}
-                  onAddTask={onAddTask}
                 />
               ))
             ) : (
