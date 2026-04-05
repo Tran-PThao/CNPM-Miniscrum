@@ -17,7 +17,12 @@ export default function ProductBacklog({
   onEdit,
   onDelete,
   onMoveToSprint,
-  userRole
+  userRole,
+  selectedStories = [],
+  onToggleSelect,
+  onSelectAll,
+  projectId,
+  onAddTask
 }) {
   const isManagement = userRole === "PO" || userRole === "SM";
 
@@ -25,7 +30,81 @@ export default function ProductBacklog({
     id: "backlog-droppable-area",
   });
 
-  // Lấy tất cả tag duy nhất từ stories (Filter Tag động)
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  // ==================== US-051: Server-side Pagination ====================
+  const [serverStories, setServerStories] = useState([]);
+  const [serverPagination, setServerPagination] = useState({
+    page: 1,
+    size: 12,
+    totalElements: 0,
+    totalPages: 1,
+  });
+  const [loading, setLoading] = useState(false);
+  const [allServerTags, setAllServerTags] = useState([]);
+
+  // State nội bộ cho server mode
+  const [internalSearchTerm, setInternalSearchTerm] = useState(searchTerm);
+  const [internalFilterPriority, setInternalFilterPriority] = useState(filterPriority);
+  const [internalFilterStatus, setInternalFilterStatus] = useState(filterStatus);
+  const [internalFilterTag, setInternalFilterTag] = useState(filterTag);
+
+  // Fetch từ API
+  const fetchServerBacklog = async () => {
+    if (!projectId) return;
+
+    setLoading(true);
+    try {
+      const params = {
+        projectId,
+        page: serverPagination.page,
+        size: 12,
+        search: internalSearchTerm || undefined,
+        priority: internalFilterPriority !== "ALL" ? internalFilterPriority : undefined,
+        status: internalFilterStatus !== "ALL" ? internalFilterStatus : undefined,
+        tag: internalFilterTag !== "ALL" ? internalFilterTag : undefined,
+      };
+
+      console.log("Đang gọi API với params:", params);
+
+      const res = await api.get('/user-stories/backlog', { params });
+
+      console.log("API trả về:", res.data);
+
+      setServerStories(res.data?.content || []);
+      setServerPagination({
+        page: res.data?.pagination?.page || 1,
+        size: res.data?.pagination?.size || 12,
+        totalElements: res.data?.pagination?.totalElements || 0,
+        totalPages: res.data?.pagination?.totalPages || 1,
+      });
+
+      if (res.data.allTags) setAllServerTags(res.data.allTags);
+    } catch (error) {
+      console.error("Lỗi load Product Backlog:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Gọi API khi projectId hoặc các filter thay đổi
+  useEffect(() => {
+    if (projectId) {
+      fetchServerBacklog();
+    }
+  }, [projectId, serverPagination.page, internalSearchTerm, internalFilterPriority, internalFilterStatus, internalFilterTag]);
+
+  // Reset về trang 1 khi thay đổi filter/search
+  const resetToFirstPage = () => {
+    setServerPagination(prev => ({ ...prev, page: 1 }));
+  };
+
+  // ==================== Logic cũ giữ nguyên ====================
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [stories.length]);
+
   const allTags = [...new Set(
     stories.flatMap(story => {
       if (!story.tags) return [];
@@ -126,6 +205,9 @@ export default function ProductBacklog({
                   onMove={onMoveToSprint}
                   moveIcon="arrow_upward"
                   moveTitle="Đưa vào Sprint"
+                  isSelected={selectedStories.includes(story.id)}
+                  onToggleSelect={onToggleSelect}
+                  onAddTask={onAddTask}
                 />
               ))
             ) : (

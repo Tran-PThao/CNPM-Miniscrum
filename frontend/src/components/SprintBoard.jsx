@@ -2,7 +2,7 @@
 import React from 'react';
 import KanbanColumn from './KanbanColumn';
 
-export default function SprintBoard({ sprint, stories = [], onUpdateStory, onAssignTask, onDeleteTask, onAddTask, userRole }) {
+export default function SprintBoard({ sprint, stories = [], onUpdateStory, userRole }) {
   // STORIES ARE THE SWIMLANES
   // TASKS ARE THE ITEMS IN THE COLUMNS
 
@@ -41,15 +41,7 @@ export default function SprintBoard({ sprint, stories = [], onUpdateStory, onAss
                 </span>
               </div>
               <h4 className="font-bold text-sm text-on-surface leading-tight mb-2">{story.title}</h4>
-              <p className="text-[11px] text-on-surface-variant line-clamp-2 leading-relaxed mb-3">{story.description}</p>
-              
-              <button 
-                onClick={() => onAddTask && onAddTask(story.id, story.title)}
-                className="flex items-center gap-2 text-[10px] font-bold text-primary hover:bg-primary/10 w-fit px-3 py-1.5 rounded-lg border border-primary/20 transition-all"
-              >
-                <span className="material-symbols-outlined text-sm">add_task</span>
-                THÊM TASK NHANH
-              </button>
+              <p className="text-[11px] text-on-surface-variant line-clamp-2 leading-relaxed">{story.description}</p>
             </div>
 
             {/* Task Columns (Cells in the Swimlane) */}
@@ -59,8 +51,6 @@ export default function SprintBoard({ sprint, stories = [], onUpdateStory, onAss
               items={(story.tasks || []).filter(t => t.status === 'TODO')}
               itemType="task"
               onUpdateItem={() => {}} // Handled by global DndContext in Backlog.jsx
-              onAssignTask={onAssignTask}
-              onDeleteTask={onDeleteTask}
             />
             <KanbanColumn
               columnId={`taskcolumn-${story.id}-IN_PROGRESS`}
@@ -68,8 +58,6 @@ export default function SprintBoard({ sprint, stories = [], onUpdateStory, onAss
               items={(story.tasks || []).filter(t => t.status === 'IN_PROGRESS')}
               itemType="task"
               onUpdateItem={() => {}}
-              onAssignTask={onAssignTask}
-              onDeleteTask={onDeleteTask}
             />
             <KanbanColumn
               columnId={`taskcolumn-${story.id}-DONE`}
@@ -77,8 +65,6 @@ export default function SprintBoard({ sprint, stories = [], onUpdateStory, onAss
               items={(story.tasks || []).filter(t => t.status === 'DONE')}
               itemType="task"
               onUpdateItem={() => {}}
-              onAssignTask={onAssignTask}
-              onDeleteTask={onDeleteTask}
             />
           </div>
         ))}

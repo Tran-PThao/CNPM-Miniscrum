@@ -441,10 +441,7 @@ app.get("/api/project/:projectId/userstories", async (req, res) => {
       ],
       include: { 
         assignee: { select: { fullName: true, email: true } },
-        tasks: { 
-          orderBy: { createdAt: "asc" },
-          include: { assignee: { select: { id: true, fullName: true } } }
-        }
+        tasks: { orderBy: { createdAt: "asc" } }
       }
     });
     // Tránh browser cache để loadData() luôn lấy dữ liệu mới nhất
@@ -467,11 +464,7 @@ app.get("/api/project/:projectId/sprints", authMiddleware, async (req, res) => {
       include: { 
         stories: { 
           include: { 
-            assignee: { select: { fullName: true, email: true } },
-            tasks: { 
-              include: { assignee: { select: { id: true, fullName: true, email: true } } },
-              orderBy: { createdAt: "asc" } 
-            } 
+            tasks: { orderBy: { createdAt: "asc" } } 
           } 
         } 
       }
@@ -516,11 +509,8 @@ app.get("/api/sprint/:id", authMiddleware, async (req, res) => {
       include: { 
         stories: { 
           include: { 
-            assignee: { select: { fullName: true, email: true } },
-            tasks: { 
-              include: { assignee: { select: { id: true, fullName: true, email: true } } },
-              orderBy: { createdAt: "asc" } 
-            }
+            assignee: { select: { fullName: true } },
+            tasks: { orderBy: { createdAt: "asc" } }
           } 
         } 
       }
@@ -759,23 +749,6 @@ app.patch("/api/tasks/:id", authMiddleware, async (req, res) => {
   }
 });
 
-// GÁN TASK CHO MEMBER BẰNG EMAIL
-app.patch("/api/tasks/:id/assign", authMiddleware, async (req, res) => {
-  const { email } = req.body;
-  try {
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) return res.status(404).json({ error: "Không tìm thấy user với email này" });
-    
-    const updated = await prisma.task.update({
-      where: { id: req.params.id },
-      data: { assigneeId: user.id }
-    });
-    res.json({ message: "Gán thành viên thành công", task: updated });
-  } catch (err) {
-    res.status(500).json({ error: "Lỗi gán Task" });
-  }
-});
-
 // XÓA TASK
 app.delete("/api/tasks/:id", authMiddleware, async (req, res) => {
   const { id } = req.params;
@@ -793,7 +766,6 @@ app.get("/api/userstory/:storyId/tasks", authMiddleware, async (req, res) => {
   try {
     const tasks = await prisma.task.findMany({
       where: { storyId },
-      include: { assignee: { select: { id: true, fullName: true, email: true } } },
       orderBy: { createdAt: "asc" }
     });
     res.json(tasks);

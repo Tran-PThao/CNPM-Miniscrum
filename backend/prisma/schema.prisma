@@ -17,7 +17,6 @@ model User {
   projects        ProjectMember[]
   assignedStories UserStory[]     @relation("AssignedStories")
   assignedTasks   Task[]          @relation("AssignedTasks")
-  standups        DailyStandup[]
 }
 
 model Project {
@@ -72,6 +71,20 @@ model UserStory {
   assignee     User?   @relation("AssignedStories", fields: [assigneeId], references: [id])
   project      Project @relation(fields: [projectId], references: [id])
   sprint       Sprint? @relation(fields: [sprintId], references: [id])
+  tasks        Task[]
+}
+
+model Task {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  status      String    @default("TODO") // TODO, IN_PROGRESS, DONE
+  storyId     String
+  userStory   UserStory @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  assigneeId  String?
+  assignee    User?     @relation("AssignedTasks", fields: [assigneeId], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
 
 model DailyStandup {

@@ -1,7 +1,7 @@
 import { useDroppable } from '@dnd-kit/core';
 import UserStoryCard from "./UserStoryCard";
 
-export default function SprintSection({ sprint, stories = [], onMoveToBacklog, onAssign, onEdit, onDelete, onStatusChange, userRole }) {
+export default function SprintSection({ sprint, stories = [], onMoveToBacklog, onAssign, onEdit, onDelete, onStatusChange, userRole, selectedStories = [], onToggleSelect, onSelectAll, onAddTask }) {
   const isManagement = userRole === "PO" || userRole === "SM";
   const { setNodeRef, isOver } = useDroppable({
     id: `sprint-${sprint.id}`,
@@ -110,6 +110,9 @@ export default function SprintSection({ sprint, stories = [], onMoveToBacklog, o
               userRole={userRole}
               moveIcon="arrow_downward"
               moveTitle="Đẩy về Backlog"
+              isSelected={selectedStories.includes(story.id)}
+              onToggleSelect={onToggleSelect}
+              onAddTask={onAddTask}
             />
           ))
         ) : (

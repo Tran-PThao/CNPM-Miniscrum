@@ -174,9 +174,13 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Floating Action Button */}
+      {/* Floating Action Button - Chuyển sang Backlog để quản lý Story/Task */}
       {projectId && (
-        <FAB onClick={() => navigate(`/projects/${projectId}/backlog`)} />
+        <FAB 
+          onClick={() => navigate(`/projects/${projectId}/backlog`)} 
+          title="Quản lý Backlog & Task"
+          icon="inventory_2"
+        />
       )}
     </MainLayout>
   );

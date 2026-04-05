@@ -1,4 +1,9 @@
-import KanbanCard from "./KanbanCard";
+// frontend/src/components/KanbanColumn.jsx
+import React from 'react';
+import { useDroppable } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { SortableUserStoryCard } from './SortableUserStoryCard';
+import { TaskCard } from './TaskCard';
 
 export default function KanbanColumn({
   title,
@@ -11,29 +16,24 @@ export default function KanbanColumn({
   onAssign,
   onEdit,
   onDelete,
-  userRole = 'MEMBER',
-  onAssignTask,
-  onDeleteTask
+  userRole = 'MEMBER'
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: columnId || `column-${status}`,
   });
 
   return (
-    <div className="flex-1 flex flex-col min-w-[320px] bg-surface-container-low rounded-2xl p-4">
-      {/* Column header */}
-      <div className="flex items-center justify-between px-2 mb-6">
-        <div className="flex items-center gap-3">
-          <h3 className="font-['Manrope'] font-extrabold text-on-surface text-base uppercase tracking-wider">
-            {title}
-          </h3>
-          <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${cfg.badgeBg}`}>
-            {cards.length}
-          </span>
-        </div>
-        <button className="text-on-surface-variant hover:text-primary transition-colors">
-          <span className="material-symbols-outlined">more_horiz</span>
-        </button>
+    <div
+      ref={setNodeRef}
+      className={`bg-surface-container-low rounded-2xl p-4 min-h-[500px] border border-outline-variant/30 flex flex-col transition-colors
+        ${isOver ? 'ring-2 ring-primary/50 bg-surface-container' : ''}`}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4 px-2">
+        <h4 className="font-semibold text-on-surface">{title}</h4>
+        <span className="text-xs bg-surface px-3 py-1 rounded-full text-on-surface-variant font-medium">
+          {items.length}
+        </span>
       </div>
 
       {/* Vùng sortable */}
@@ -60,8 +60,7 @@ export default function KanbanColumn({
                 key={item.id}
                 {...item}
                 id={`task-${item.id}`}
-                onDelete={() => onDeleteTask && onDeleteTask(item.id)}
-                onAssign={() => onAssignTask && onAssignTask(item.id)}
+                onDelete={() => {}}
               />
             )
           ))}

@@ -2,7 +2,7 @@ import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-export function TaskCard({ id, title, description, status, onDelete, onAssign, assignee }) {
+export function TaskCard({ id, title, description, status, onDelete }) {
   const {
     attributes,
     listeners,
@@ -16,13 +16,6 @@ export function TaskCard({ id, title, description, status, onDelete, onAssign, a
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
-  };
-
-  const cleanId = id.replace('task-', '');
-
-  const handleAssigneeChange = (e) => {
-    const newAssigneeId = e.target.value === 'unassigned' ? null : e.target.value;
-    onUpdate({ assigneeId: newAssigneeId });
   };
 
   return (
@@ -40,7 +33,7 @@ export function TaskCard({ id, title, description, status, onDelete, onAssign, a
         </h5>
         {onDelete && (
           <button
-            onClick={(e) => { e.stopPropagation(); onDelete(cleanId); }}
+            onClick={(e) => { e.stopPropagation(); onDelete(id); }}
             className="opacity-0 group-hover:opacity-100 p-1 hover:bg-error/10 text-error rounded transition-opacity"
           >
             <span className="material-symbols-outlined text-[14px]">delete</span>
@@ -54,22 +47,9 @@ export function TaskCard({ id, title, description, status, onDelete, onAssign, a
         </p>
       )}
 
-      <div className="mt-2 flex justify-between items-center">
-        <div className="text-[9px] font-bold text-outline-variant">
-           {status}
-        </div>
-        <div 
-          onClick={(e) => { e.stopPropagation(); onAssign?.(); }}
-          className="w-6 h-6 rounded-full bg-surface-container flex items-center justify-center cursor-pointer hover:bg-primary/20 hover:text-primary transition-all overflow-hidden border border-outline-variant/10"
-          title={assignee?.fullName ? `Phụ trách: ${assignee.fullName}` : "Gán người phụ trách"}
-        >
-          {assignee?.fullName ? (
-            <div className="w-full h-full bg-primary text-on-primary flex items-center justify-center text-[10px] font-bold">
-              {assignee.fullName.charAt(0).toUpperCase()}
-            </div>
-          ) : (
-            <span className="material-symbols-outlined text-[12px] text-outline">person_add</span>
-          )}
+      <div className="mt-2 flex justify-end">
+        <div className="w-5 h-5 rounded-full bg-surface-container flex items-center justify-center">
+           <span className="material-symbols-outlined text-[10px] text-outline">person</span>
         </div>
       </div>
     </div>
