@@ -1,3 +1,4 @@
+//backend/src/index.js
 const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
@@ -13,6 +14,8 @@ const prisma = new PrismaClient();
 
 app.use(cors());
 app.use(express.json());
+app.use('/api/user-stories', userstoryRoutes);   // ← Thiếu dòng này!
+
 // Middleware auth (dùng cho tất cả route cần quyền)
 const authMiddleware = (req, res, next) => {
   const token = req.headers.authorization?.split(" ")[1]; // Bearer token

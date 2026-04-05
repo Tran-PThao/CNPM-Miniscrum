@@ -1,3 +1,4 @@
+//frontend/src/pages/Backlog.jsx
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -461,33 +462,39 @@ const handleDragEnd = async (event) => {
               Task Board
             </button>
           </div>
-
-          {/* Nội dung theo Tab */}
-          {activeTab === "backlog" ? (
-            <ProductBacklog 
-              projectId={projectId}
-              stories={filteredBacklogStories}
-              searchTerm={searchTerm}
-              onSearchChange={setSearchTerm}
-              filterPriority={filterPriority}
-              onFilterPriorityChange={setFilterPriority}
-              filterStatus={filterStatus}
-              onFilterStatusChange={setFilterStatus}
-              filterTag={filterTag}
-              onFilterTagChange={setFilterTag}  
-              onAddStory={handleAddStory} 
-              onAssignStory={handleAssignStory} 
-              onEdit={handleEditStory}
-              onDelete={handleDeleteStory}
-              userRole={userRole} 
-              selectedStories={selectedStories}
-              onToggleSelect={toggleStorySelection}
-              onSelectAll={handleSelectAll}
-              onMoveToSprint={async (id) => {
-                const latestSprint = sprints.find(s => s.status === 'PLANNED') || sprints[0];
-                if (!latestSprint) {
-                  alert("Vui lòng tạo một Sprint trước.");
-                  return;
+          
+          {/* MIDDLE: Product Backlog */}
+          <ProductBacklog 
+            projectId={projectId}
+            //stories={filteredBacklogStories}
+            //searchTerm={searchTerm}
+            //onSearchChange={setSearchTerm}
+            //filterPriority={filterPriority}
+            //onFilterPriorityChange={setFilterPriority}
+            //filterStatus={filterStatus}
+            //onFilterStatusChange={setFilterStatus}
+            //filterTag={filterTag}
+            //onFilterTagChange={setFilterTag}  
+            onAddStory={handleAddStory} 
+            onAssignStory={handleAssignStory} 
+            onEdit={handleEditStory}
+            onDelete={handleDeleteStory}
+            userRole={userRole} 
+            selectedStories={selectedStories}
+            onToggleSelect={toggleStorySelection}
+            onSelectAll={handleSelectAll}
+            onMoveToSprint={async (id) => {
+              const latestSprint = sprints.find(s => s.status === 'PLANNED') || sprints[0];
+              if (!latestSprint) {
+                alert("Vui lòng tạo một Sprint trước.");
+                return;
+              }
+              if (window.confirm(`Đưa User Story này vào ${latestSprint.name}?`)) {
+                try {
+                  await updateUserStory(id, { sprintId: latestSprint.id, status: "TODO" });
+                  await loadData();
+                } catch (err) {
+                  alert("Có lỗi khi đưa vào Sprint");
                 }
                 if (window.confirm(`Đưa User Story này vào ${latestSprint.name}?`)) {
                   try {
