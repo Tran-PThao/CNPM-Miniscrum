@@ -1,4 +1,3 @@
-// frontend/src/components/ProductBacklog.jsx
 import { useState, useEffect } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -35,78 +34,12 @@ export default function ProductBacklog({
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // ==================== US-051: Server-side Pagination ====================
-  const [serverStories, setServerStories] = useState([]);
-  const [serverPagination, setServerPagination] = useState({
-    page: 1,
-    size: 12,
-    totalElements: 0,
-    totalPages: 1,
-  });
-  const [loading, setLoading] = useState(false);
-  const [allServerTags, setAllServerTags] = useState([]);
-
-  // State nội bộ cho server mode
-  const [internalSearchTerm, setInternalSearchTerm] = useState(searchTerm);
-  const [internalFilterPriority, setInternalFilterPriority] = useState(filterPriority);
-  const [internalFilterStatus, setInternalFilterStatus] = useState(filterStatus);
-  const [internalFilterTag, setInternalFilterTag] = useState(filterTag);
-
-  // Fetch từ API
-  const fetchServerBacklog = async () => {
-    if (!projectId) return;
-
-    setLoading(true);
-    try {
-      const params = {
-        projectId,
-        page: serverPagination.page,
-        size: 12,
-        search: internalSearchTerm || undefined,
-        priority: internalFilterPriority !== "ALL" ? internalFilterPriority : undefined,
-        status: internalFilterStatus !== "ALL" ? internalFilterStatus : undefined,
-        tag: internalFilterTag !== "ALL" ? internalFilterTag : undefined,
-      };
-
-      console.log("Đang gọi API với params:", params);
-
-      const res = await api.get('/user-stories/backlog', { params });
-
-      console.log("API trả về:", res.data);
-
-      setServerStories(res.data.content || []);
-      setServerPagination({
-        page: res.data.pagination.page || 1,
-        size: res.data.pagination.size || 12,
-        totalElements: res.data.pagination.totalElements || 0,
-        totalPages: res.data.pagination.totalPages || 1,
-      });
-
-      if (res.data.allTags) setAllServerTags(res.data.allTags);
-    } catch (error) {
-      console.error("Lỗi load Product Backlog:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Gọi API khi projectId hoặc các filter thay đổi
-  useEffect(() => {
-    if (projectId) {
-      fetchServerBacklog();
-    }
-  }, [projectId, serverPagination.page, internalSearchTerm, internalFilterPriority, internalFilterStatus, internalFilterTag]);
-
-  // Reset về trang 1 khi thay đổi filter/search
-  const resetToFirstPage = () => {
-    setServerPagination(prev => ({ ...prev, page: 1 }));
-  };
-
-  // ==================== Logic cũ giữ nguyên ====================
+  // Reset to page 1 anytime the underlying list (length) or filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [stories.length]);
+  }, [stories.length, searchTerm, filterPriority, filterStatus, filterTag]);
 
+  // Lấy tất cả tag duy nhất từ stories (Filter Tag động)
   const allTags = [...new Set(
     stories.flatMap(story => {
       if (!story.tags) return [];
@@ -120,12 +53,6 @@ export default function ProductBacklog({
   const totalPages = Math.ceil(stories.length / itemsPerPage);
   const currentStories = stories.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  const useServerMode = !!projectId;
-  const displayStories = useServerMode ? serverStories : currentStories;
-  const displayTotalPages = useServerMode ? serverPagination.totalPages : totalPages;
-  const displayTotalItems = useServerMode ? serverPagination.totalElements : stories.length;
-  const displayAllTags = useServerMode ? allServerTags : allTags;
-
   return (
     <section>
       <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
@@ -134,48 +61,34 @@ export default function ProductBacklog({
             <input 
               type="checkbox"
               className="w-4 h-4 cursor-pointer accent-primary shrink-0"
-              checked={displayStories.length > 0 && selectedStories.length === displayStories.length}
-              onChange={(e) => onSelectAll(e.target.checked, displayStories)}
+              checked={stories.length > 0 && selectedStories.length === stories.length}
+              onChange={(e) => onSelectAll(e.target.checked, stories)}
+              title="Chọn tất cả trong Backlog"
             />
           )}
           <h3 className="font-['Manrope'] font-bold text-lg text-on-surface">
-            Product Backlog <span className="text-on-surface-variant text-sm font-medium">({displayTotalItems} items)</span>
+            Product Backlog <span className="text-on-surface-variant text-sm font-medium">({stories.length} items)</span>
           </h3>
         </div>
 
         <div className="flex items-center gap-2 flex-1 justify-end flex-wrap">
+          
           {/* Search */}
-          <div className="relative w-80">
+          <div className="relative w-64 shrink-0">
             <input
               type="text"
               placeholder="Tìm theo tiêu đề hoặc mô tả..."
               className="pl-9 pr-3 py-2 w-full bg-surface-container-lowest rounded-lg border border-outline-variant/30 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all text-sm"
-              value={useServerMode ? internalSearchTerm : searchTerm}
-              onChange={(e) => {
-                const value = e.target.value;
-                if (useServerMode) {
-                  setInternalSearchTerm(value);
-                  resetToFirstPage();
-                } else if (onSearchChange) {
-                  onSearchChange(value);
-                }
-              }}
+              value={searchTerm}
+              onChange={(e) => onSearchChange(e.target.value)}
             />
-            <span className="material-symbols-outlined absolute left-3.5 top-3 text-on-surface-variant text-xl">search</span>
+            <span className="material-symbols-outlined absolute left-2.5 top-2 text-on-surface-variant text-lg">search</span>
           </div>
 
           {/* Filter Priority */}
           <select 
-            value={useServerMode ? internalFilterPriority : filterPriority}
-            onChange={(e) => {
-              const value = e.target.value;
-              if (useServerMode) {
-                setInternalFilterPriority(value);
-                resetToFirstPage();
-              } else if (onFilterPriorityChange) {
-                onFilterPriorityChange(value);
-              }
-            }}
+            value={filterPriority}
+            onChange={(e) => onFilterPriorityChange(e.target.value)}
             className="bg-surface-container-lowest px-3 py-2 rounded-lg border border-outline-variant/30 focus:border-primary outline-none cursor-pointer w-32 text-sm"
           >
             <option value="ALL">Tất cả ưu tiên</option>
@@ -186,16 +99,8 @@ export default function ProductBacklog({
 
           {/* Filter Status */}
           <select 
-            value={useServerMode ? internalFilterStatus : filterStatus}
-            onChange={(e) => {
-              const value = e.target.value;
-              if (useServerMode) {
-                setInternalFilterStatus(value);
-                resetToFirstPage();
-              } else if (onFilterStatusChange) {
-                onFilterStatusChange(value);
-              }
-            }}
+            value={filterStatus}
+            onChange={(e) => onFilterStatusChange(e.target.value)}
             className="bg-surface-container-lowest px-3 py-2 rounded-lg border border-outline-variant/30 focus:border-primary outline-none cursor-pointer w-36 text-sm"
           >
             <option value="ALL">Tất cả trạng thái</option>
@@ -207,16 +112,8 @@ export default function ProductBacklog({
 
           {/* Filter Tag */}
           <select 
-            value={useServerMode ? internalFilterTag : filterTag}
-            onChange={(e) => {
-              const value = e.target.value;
-              if (useServerMode) {
-                setInternalFilterTag(value);
-                resetToFirstPage();
-              } else if (onFilterTagChange) {
-                onFilterTagChange(value);
-              }
-            }}
+            value={filterTag}
+            onChange={(e) => onFilterTagChange(e.target.value)}
             className="bg-surface-container-lowest px-3 py-2 rounded-lg border border-outline-variant/30 focus:border-primary outline-none cursor-pointer w-32 text-sm"
           >
             <option value="ALL">Tất cả nhãn</option>
@@ -230,17 +127,15 @@ export default function ProductBacklog({
       {/* Khu vực kéo thả */}
       <div 
         ref={setNodeRef} 
-        className="min-h-[400px] p-3 border-2 border-dashed border-transparent hover:border-primary/30 rounded-3xl transition-all"
+        className="min-h-[350px] border border-dashed border-outline-variant/40 rounded-2xl overflow-hidden transition-all bg-surface"
       >
         <SortableContext 
-          items={displayStories.map((story) => story.id)}
+          items={currentStories.map((story) => story.id)}
           strategy={verticalListSortingStrategy}
         >
           <div className="flex flex-col">
-            {loading ? (
-              <div className="py-12 text-center text-on-surface-variant/70">Đang tải dữ liệu từ server...</div>
-            ) : displayStories.length > 0 ? (
-              displayStories.map((story) => (
+            {currentStories.length > 0 ? (
+              currentStories.map((story) => (
                 <SortableUserStoryCard
                   key={story.id}
                   id={story.id}
@@ -259,7 +154,7 @@ export default function ProductBacklog({
                 />
               ))
             ) : (
-              <div className="py-16 text-center text-on-surface-variant/50 italic border border-dashed border-outline-variant/20 rounded-2xl">
+              <div className="py-12 text-center text-on-surface-variant/50 italic border border-dashed border-outline-variant/20 rounded-xl text-sm">
                 Product Backlog đang trống.
               </div>
             )}
@@ -267,8 +162,8 @@ export default function ProductBacklog({
         </SortableContext>
       </div>
 
-      {/* Phân trang */}
-      {(displayTotalPages > 1 || totalPages > 1) && (
+      {/* Phân trang (Pagination) */}
+      {totalPages > 1 && (
         <div className="flex items-center justify-center gap-2 mt-4 mb-2">
           <button
             onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
@@ -278,11 +173,11 @@ export default function ProductBacklog({
             Trang trước
           </button>
           <span className="text-sm text-on-surface-variant font-medium px-2">
-            Trang {currentPage} / {displayTotalPages || totalPages}
+            Trang {currentPage} / {totalPages}
           </span>
           <button
-            onClick={() => setCurrentPage(p => Math.min(displayTotalPages || totalPages, p + 1))}
-            disabled={currentPage === (displayTotalPages || totalPages)}
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
             className="p-1 px-3 rounded-lg border border-outline-variant/30 text-sm font-medium hover:bg-surface-container-high disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
           >
             Trang sau
@@ -294,10 +189,10 @@ export default function ProductBacklog({
       {isManagement && (
         <div
           onClick={onAddStory}
-          className="mt-6 border-2 border-dashed border-outline-variant/30 p-6 rounded-2xl flex items-center justify-center gap-3 text-on-surface-variant/60 hover:bg-primary/5 hover:text-primary hover:border-primary/40 transition-all cursor-pointer group"
+          className="mt-6 border border-dashed border-outline-variant/30 p-3 rounded-xl flex items-center justify-center gap-2 text-on-surface-variant/60 hover:bg-primary/5 hover:text-primary hover:border-primary/40 transition-all cursor-pointer group bg-surface-container-lowest"
         >
-          <span className="material-symbols-outlined group-hover:rotate-90 transition-transform text-2xl">add_circle</span>
-          <span className="font-bold">Thêm User Story mới vào Backlog</span>
+          <span className="material-symbols-outlined group-hover:rotate-90 transition-transform text-xl">add_circle</span>
+          <span className="font-bold text-sm">Thêm User Story mới vào Backlog</span>
         </div>
       )}
     </section>

@@ -1,7 +1,15 @@
+import React, { useState } from 'react';
+
 const priorityConfig = {
-  HIGH: "bg-error-container text-on-error-container border-error/10",
-  MEDIUM: "bg-tertiary-container text-on-tertiary-container border-tertiary/10",
-  LOW: "bg-secondary-fixed-dim text-on-secondary-fixed-variant border-secondary/10",
+  HIGH: "bg-error text-on-error",
+  MEDIUM: "bg-tertiary text-on-tertiary",
+  LOW: "bg-secondary text-on-secondary",
+};
+
+const bgConfig = {
+  HIGH: "bg-error/10 border-error/50 text-error",
+  MEDIUM: "bg-tertiary/10 border-tertiary/50 text-tertiary",
+  LOW: "bg-secondary-fixed-dim/20 border-secondary/50 text-secondary-fixed-variant",
 };
 
 export default function UserStoryCard({
@@ -11,8 +19,8 @@ export default function UserStoryCard({
   description,
   storyPoints,
   assignee,
-  tags = [],                    // ← Nhận tags từ props
-  variant = "sprint",
+  tags = [],
+  variant = "sprint", // "sprint" or "backlog"
   onAssign,
   onEdit,
   onDelete,
@@ -26,8 +34,8 @@ export default function UserStoryCard({
 }) {
   const isSprint = variant === "sprint";
   const isManagement = userRole === "PO" || userRole === "SM";
+  const [showDetails, setShowDetails] = useState(false);
 
-  // Xử lý tags (hỗ trợ cả string JSON và array)
   const tagList = Array.isArray(tags) 
     ? tags 
     : (typeof tags === 'string' ? JSON.parse(tags || '[]') : []);
@@ -109,15 +117,6 @@ export default function UserStoryCard({
                     <span className="material-symbols-outlined text-[18px]">{moveIcon}</span>
                   </button>
                 )}
-                {onAddTask && (
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); onAddTask(id, title); }} 
-                    className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-primary/20 text-primary transition-all border border-primary/20" 
-                    title="Tạo Task mới"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">add_task</span>
-                  </button>
-                )}
                 {!isManagement && (
                   <span className="material-symbols-outlined text-outline-variant flex items-center cursor-grab px-1">drag_indicator</span>
                 )}
@@ -148,15 +147,22 @@ export default function UserStoryCard({
   // Chế độ thẻ (Cards dành cho Sprint Board)
   return (
     <div
-      className={`p-4 rounded-xl flex flex-col gap-3 group transition-all border border-transparent cursor-grab active:cursor-grabbing ${
-        isSprint
-          ? "bg-surface-container-lowest hover:shadow-lg hover:border-outline-variant/20"
-          : "bg-surface-container-low hover:bg-surface-container-high"
-      }`}
+      className="p-4 rounded-xl flex flex-col gap-3 group transition-all border border-transparent cursor-grab active:cursor-grabbing bg-surface-container-lowest hover:shadow-lg hover:border-outline-variant/20"
     >
       {/* Header: ID + Title + Move Button */}
       <div className="flex items-start gap-3">
-        {/* Move icon cho Management */}
+        {onToggleSelect && (
+          <input 
+            type="checkbox"
+            checked={isSelected}
+            onChange={(e) => {
+              e.stopPropagation();
+              onToggleSelect(id);
+            }}
+            className="mt-1 w-4 h-4 cursor-pointer accent-primary shrink-0"
+          />
+        )}
+
         {isManagement && onMove && (
           <button 
             onClick={(e) => { e.stopPropagation(); onMove(id); }}
@@ -173,17 +179,14 @@ export default function UserStoryCard({
           </span>
         )}
 
-        {/* ID */}
         <span className="text-[10px] font-black text-on-surface-variant font-mono w-16 truncate bg-surface-container px-2 py-0.5 rounded uppercase tracking-tighter mt-0.5" title={id}>
           {id?.slice(-6) || "NEW"}
         </span>
 
-        {/* Title */}
         <p className="flex-1 font-bold text-on-surface text-sm leading-tight mt-0.5">
           {title}
         </p>
 
-        {/* Management Actions */}
         {isManagement && (
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
             <button 
@@ -213,14 +216,12 @@ export default function UserStoryCard({
         )}
       </div>
 
-      {/* Description */}
       {description && (
         <p className="text-xs text-on-surface-variant/70 leading-relaxed line-clamp-2 pl-1 border-l-2 border-outline-variant/20">
           {description}
         </p>
       )}
 
-      {/* Tags Section */}
       {tagList.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {tagList.map((tag, index) => (
@@ -234,17 +235,14 @@ export default function UserStoryCard({
         </div>
       )}
 
-      {/* Meta: Priority, Story Points, Assignee */}
       <div className="flex items-center justify-between mt-1">
         <div className="flex items-center gap-3">
-          {/* Priority */}
           <div
             className={`text-[10px] px-3 py-1 rounded-full font-black uppercase tracking-widest border ${priorityConfig[priority] || priorityConfig.MEDIUM}`}
           >
             {priority}
           </div>
 
-          {/* Story Points */}
           <div
             className={`px-3 py-1 rounded-lg text-sm font-bold flex items-center gap-1 ${
               storyPoints && storyPoints > 0
@@ -258,7 +256,6 @@ export default function UserStoryCard({
           </div>
         </div>
 
-        {/* Assignee */}
         {assignee?.fullName ? (
           <div 
             className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary font-bold text-sm shadow-sm"
