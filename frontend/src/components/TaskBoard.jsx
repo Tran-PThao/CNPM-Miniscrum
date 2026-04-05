@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import SprintBoard from './SprintBoard';
 
-export default function TaskBoard({ sprints = [], stories = [], onUpdateStory, onAssignTask, onDeleteTask, onAddTask, userRole }) {
+export default function TaskBoard({ sprints = [], stories = [], onUpdateStory, userRole }) {
   const [selectedSprintId, setSelectedSprintId] = useState(null);
 
   // Ưu tiên sprint ACTIVE, sau đó là sprint đầu tiên
@@ -52,11 +52,7 @@ export default function TaskBoard({ sprints = [], stories = [], onUpdateStory, o
       <SprintBoard
         sprint={currentSprint}
         stories={sprintStories}
-        members={members}
         onUpdateStory={onUpdateStory}
-        onAssignTask={onAssignTask}
-        onDeleteTask={onDeleteTask}
-        onAddTask={onAddTask}
         userRole={userRole}
       />
     </div>
