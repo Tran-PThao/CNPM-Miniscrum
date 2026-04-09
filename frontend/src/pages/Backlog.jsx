@@ -15,7 +15,7 @@ import api, {
   reorderStories,
   createStoryTask, 
   updateTask,
-  getProjectMembers
+  assignTaskByEmail
 } from "../services/api";
 import CreateStoryModal from "../components/CreateStoryModal";
 import CreateSprintModal from "../components/CreateSprintModal";
@@ -285,6 +285,27 @@ export default function Backlog() {
     }
   };
 
+  const handleAssignTask = async (taskId) => {
+    const email = window.prompt("Nhập Email của người phụ trách Task:");
+    if (!email) return;
+    try {
+      await assignTaskByEmail(taskId, email);
+      await loadData();
+    } catch (e) {
+      window.alert(e.response?.data?.error || "Lỗi gán Task!");
+    }
+  };
+
+  const handleDeleteTask = async (taskId) => {
+    if (!window.confirm("Bạn có chắc chắn muốn xóa Task này?")) return;
+    try {
+      await api.delete(`/tasks/${taskId}`);
+      await loadData();
+    } catch (e) {
+      window.alert(e.response?.data?.error || "Lỗi khi xóa Task!");
+    }
+  };
+
   const handleSprintStatusChange = async (sprintId, newStatus) => {
     try {
       await api.patch(`/sprint/${sprintId}`, { status: newStatus });
@@ -400,9 +421,11 @@ export default function Backlog() {
                 await updateUserStory(storyId, data);
                 await loadData();
               }}
-              onUpdateTask={async (taskId, data) => {
-                await updateTask(taskId, data);
-                await loadData();
+              onAssignTask={handleAssignTask}
+              onDeleteTask={handleDeleteTask}
+              onAddTask={(id, title) => {
+                setTaskStory({ id, title });
+                setIsTaskModalOpen(true);
               }}
               userRole={userRole}
             />
