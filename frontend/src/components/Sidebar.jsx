@@ -6,6 +6,7 @@ export default function Sidebar({ activePage = "Dashboard", isOpen, onClose, pro
     { icon: "dashboard", label: "Dashboard", href: "/dashboard" },
     { icon: "list_alt", label: "Backlog", href: projectId ? `/projects/${projectId}/backlog` : "/backlog" },
     { icon: "view_kanban", label: "Board", href: projectId ? `/projects/${projectId}/board` : "/board" },
+    { icon: "edit_calendar", label: "Standup", href: projectId ? `/projects/${projectId}/standup` : "#" },
     { icon: "assessment", label: "Reports", href: "#" },
   ];
 
