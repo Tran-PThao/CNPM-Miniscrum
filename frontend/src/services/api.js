@@ -42,4 +42,7 @@ export const reorderStories = (stories) => api.patch('/userstory/reorder', { sto
 export const getInvitations = () => api.get('/invitations');
 export const respondToInvitation = (id, action) => api.post(`/invitations/${id}/respond`, { action });
 
+// MEMBERS
+export const getProjectMembers = (projectId) => api.get(`/project/${projectId}/members`);
+
 export default api;

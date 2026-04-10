@@ -1,25 +1,22 @@
 import KanbanCard from "./KanbanCard";
 
-const columnConfig = {
-  todo: {
-    badgeBg: "bg-surface-container-high text-on-surface-variant",
-  },
-  inprogress: {
-    badgeBg: "bg-primary text-white",
-  },
-  done: {
-    badgeBg: "bg-surface-dim text-on-surface-variant",
-  },
-};
-
-/**
- * @param {Object}   props
- * @param {string}   props.title       - "TO DO" | "IN PROGRESS" | "DONE"
- * @param {"todo"|"inprogress"|"done"} props.variant
- * @param {Array}    props.cards       - array of KanbanCard props
- */
-export default function KanbanColumn({ title, variant = "todo", cards = [], onStatusUpdate, onAssign, onEdit, onDelete, userRole }) {
-  const cfg = columnConfig[variant];
+export default function KanbanColumn({
+  title,
+  status,
+  items = [],
+  sprintId,
+  onUpdateItem,
+  itemType = 'story', // 'story' or 'task'
+  columnId,           // Optional custom ID for swimlanes
+  onAssign,
+  onEdit,
+  onDelete,
+  userRole = 'MEMBER',
+  members = []
+}) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: columnId || `column-${status}`,
+  });
 
   return (
     <div className="flex-1 flex flex-col min-w-[320px] bg-surface-container-low rounded-2xl p-4">
@@ -38,21 +35,44 @@ export default function KanbanColumn({ title, variant = "todo", cards = [], onSt
         </button>
       </div>
 
-      {/* Cards */}
-      <div className={`flex flex-col gap-4 overflow-y-auto ${variant === "done" ? "opacity-80" : ""}`}>
-        {cards.map((card) => (
-          <KanbanCard 
-            key={card.id} 
-            {...card} 
-            done={variant === "done"} 
-            onStatusUpdate={(newStatus) => onStatusUpdate(card.id, newStatus)} 
-            onAssign={onAssign} 
-            onEdit={onEdit}
-            onDelete={onDelete}
-            userRole={userRole}
-          />
-        ))}
-      </div>
+      {/* Vùng sortable */}
+      <SortableContext
+        items={items.map(item => itemType === 'task' ? `task-${item.id}` : item.id)}
+        strategy={verticalListSortingStrategy}
+      >
+        <div className="space-y-3 flex-1">
+          {items.map((item) => (
+            itemType === 'story' ? (
+              <SortableUserStoryCard
+                key={item.id}
+                id={item.id}
+                {...item}
+                variant="sprint"
+                userRole={userRole}
+                onAssign={onAssign}
+                onEdit={onEdit}
+                onDelete={onDelete}
+                onMove={onUpdateItem}
+              />
+            ) : (
+              <TaskCard
+                key={item.id}
+                {...item}
+                id={`task-${item.id}`}
+                members={members}
+                onUpdate={(data) => onUpdateItem(item.id, data)}
+                onDelete={() => {}}
+              />
+            )
+          ))}
+
+          {items.length === 0 && (
+            <div className="h-16 flex items-center justify-center border-2 border-dashed border-outline-variant/20 rounded-xl text-on-surface-variant/50 text-[10px] italic">
+              Trống
+            </div>
+          )}
+        </div>
+      </SortableContext>
     </div>
   );
 }

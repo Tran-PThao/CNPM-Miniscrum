@@ -12,9 +12,10 @@ import ProductBacklog from "../components/ProductBacklog";
 import api, { 
   getStoriesByProject, 
   createUserStory, 
-  updateUserStory, 
-  getSprintsByProject,
-  reorderStories
+  reorderStories,
+  createStoryTask, 
+  updateTask,
+  getProjectMembers
 } from "../services/api";
 import CreateStoryModal from "../components/CreateStoryModal";
 import CreateSprintModal from "../components/CreateSprintModal";
@@ -32,6 +33,7 @@ export default function Backlog() {
   const [sprints, setSprints] = useState([]);
   const [project, setProject] = useState(null);
   const [userRole, setUserRole] = useState("MEMBER");
+  const [members, setMembers] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSprintModalOpen, setIsSprintModalOpen] = useState(false);
   const [editingStory, setEditingStory] = useState(null);
@@ -65,12 +67,14 @@ export default function Backlog() {
       getStoriesByProject(projectId),
       getSprintsByProject(projectId),
       api.get(`/project/${projectId}`),
-      api.get(`/project/${projectId}/role`)
-    ]).then(([storiesRes, sprintsRes, projectRes, roleRes]) => {
+      api.get(`/project/${projectId}/role`),
+      getProjectMembers(projectId)
+    ]).then(([storiesRes, sprintsRes, projectRes, roleRes, membersRes]) => {
       setStories(Array.isArray(storiesRes.data) ? storiesRes.data : []);
       setSprints(Array.isArray(sprintsRes.data) ? sprintsRes.data : []);
       setProject(projectRes.data);
       setUserRole(roleRes.data.role);
+      setMembers(Array.isArray(membersRes.data) ? membersRes.data : []);
     }).catch(err => {
       console.error("Lỗi tải dữ liệu:", err);
       if (err.response?.status === 401) {
@@ -81,12 +85,14 @@ export default function Backlog() {
 
   const loadData = async () => {
     try {
-      const [storiesRes, sprintsRes] = await Promise.all([
+      const [storiesRes, sprintsRes, membersRes] = await Promise.all([
         getStoriesByProject(projectId),
-        getSprintsByProject(projectId)
+        getSprintsByProject(projectId),
+        getProjectMembers(projectId)
       ]);
       setStories(Array.isArray(storiesRes.data) ? storiesRes.data : []);
       setSprints(Array.isArray(sprintsRes.data) ? sprintsRes.data : []);
+      setMembers(Array.isArray(membersRes.data) ? membersRes.data : []);
     } catch (err) {
       console.error("Lỗi khi tải dữ liệu:", err);
     }
@@ -371,9 +377,36 @@ export default function Backlog() {
                 } catch (err) {
                   alert("Có lỗi khi đưa vào Sprint");
                 }
-              }
-            }}
-          />
+                  if (window.confirm(`Đưa User Story này vào ${latestSprint.name}?`)) {
+                    try {
+                      await updateUserStory(id, { sprintId: latestSprint.id, status: "TODO" });
+                      await loadData();
+                    } catch (err) {
+                    }
+                  }
+                }}
+                onAddTask={(id, title) => {
+                  console.log("Opening Task Modal for story:", id, title);
+                  setTaskStory({ id, title });
+                  setIsTaskModalOpen(true);
+                }}
+              />
+          ) : (
+            <TaskBoard 
+              sprints={sprints}
+              stories={stories}
+              members={members}
+              onUpdateStory={async (storyId, data) => {
+                await updateUserStory(storyId, data);
+                await loadData();
+              }}
+              onUpdateTask={async (taskId, data) => {
+                await updateTask(taskId, data);
+                await loadData();
+              }}
+              userRole={userRole}
+            />
+          )}
 
           {/* BOTTOM: Planned Sprints (Sprint Planning Area) */}
           <div className="space-y-4 pt-4 border-t border-outline-variant/10">
