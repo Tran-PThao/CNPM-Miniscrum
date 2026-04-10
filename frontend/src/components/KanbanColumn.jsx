@@ -19,8 +19,7 @@ export default function KanbanColumn({
   userRole = 'MEMBER',
   members = [],
   onAssignTask,
-  onDeleteTask,
-  currentUser,        // ← THÊM DÒNG NÀY (bắt buộc cho CommentSection)
+  onDeleteTask
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: columnId || `column-${status}`,
@@ -66,7 +65,6 @@ export default function KanbanColumn({
                 id={`task-${item.id}`}
                 members={members}
                 userRole={userRole}
-                currentUser={currentUser}          // ← THÊM DÒNG NÀY (quan trọng nhất)
                 onUpdate={(data) => onUpdateItem(item.id, data)}
                 onDelete={() => onDeleteTask && onDeleteTask(item.id)}
                 onAssign={() => onAssignTask && onAssignTask(item.id)}
