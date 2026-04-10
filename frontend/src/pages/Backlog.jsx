@@ -37,7 +37,9 @@ import api, {
   createUserStory, 
   reorderStories,
   createStoryTask, 
-  updateTask 
+  updateTask,
+  getProjectMembers,
+  assignTaskByEmail
 } from "../services/api";
 
 export default function Backlog() {
@@ -431,12 +433,102 @@ const handleDragEnd = async (event) => {
         onDragEnd={handleDragEnd}
       >
         <div className="space-y-6 md:space-y-10 pb-20">
-          {/* TOP: Active Sprints */}
-          <div className="space-y-4">
-            <div className="flex items-center px-2">
-              <h3 className="text-lg font-bold text-primary flex items-center gap-2">
-                <span className="material-symbols-outlined">bolt</span>
-                Current Sprints
+
+          {/* TAB CHUYỂN ĐỔI - Giống Jira */}
+          <div className="flex border-b border-outline-variant mb-6">
+            <button
+              onClick={() => setActiveTab("backlog")}
+              className={`px-6 py-3 font-medium text-sm transition-all border-b-2 flex items-center gap-2 ${activeTab === "backlog"
+                  ? "border-primary text-primary"
+                  : "border-transparent hover:text-on-surface"
+                }`}
+            >
+              <span className="material-symbols-outlined">inventory_2</span>
+              Product Backlog
+            </button>
+
+            <button
+              onClick={() => setActiveTab("taskboard")}
+              className={`px-6 py-3 font-medium text-sm transition-all border-b-2 flex items-center gap-2 ${activeTab === "taskboard"
+                  ? "border-primary text-primary"
+                  : "border-transparent hover:text-on-surface"
+                }`}
+            >
+              <span className="material-symbols-outlined">view_kanban</span>
+              Task Board
+            </button>
+          </div>
+
+          {/* MIDDLE: Product Backlog */}
+          {activeTab === "backlog" ? (
+            <ProductBacklog 
+              projectId={projectId}
+              stories={filteredBacklogStories}
+              searchTerm={searchTerm}
+              onSearchChange={setSearchTerm}
+              filterPriority={filterPriority}
+              onFilterPriorityChange={setFilterPriority}
+              filterStatus={filterStatus}
+              onFilterStatusChange={setFilterStatus}
+              filterTag={filterTag}
+              onFilterTagChange={setFilterTag}  
+              onAddStory={handleAddStory} 
+              onAssignStory={handleAssignStory} 
+              onEdit={handleEditStory}
+              onDelete={handleDeleteStory}
+              userRole={userRole} 
+              selectedStories={selectedStories}
+              onToggleSelect={toggleStorySelection}
+              onSelectAll={handleSelectAll}
+              onMoveToSprint={async (id) => {
+                const latestSprint = sprints.find(s => s.status === 'PLANNED') || sprints[0];
+                if (!latestSprint) {
+                  alert("Vui lòng tạo một Sprint trước.");
+                  return;
+                }
+                  if (window.confirm(`Đưa User Story này vào ${latestSprint.name}?`)) {
+                    try {
+                      await updateUserStory(id, { sprintId: latestSprint.id, status: "TODO" });
+                      await loadData();
+                    } catch (err) {
+                    }
+                  }
+                }}
+                onAddTask={(id, title) => {
+                  console.log("Opening Task Modal for story:", id, title);
+                  setTaskStory({ id, title });
+                  setIsTaskModalOpen(true);
+                }}
+              />
+          ) : (
+            <TaskBoard 
+              sprints={sprints}
+              stories={stories}
+              members={members}
+              onUpdateStory={async (storyId, data) => {
+                await updateUserStory(storyId, data);
+                await loadData();
+              }}
+              onUpdateTask={async (taskId, data) => {
+                await updateTask(taskId, data);
+                await loadData();
+              }}
+              onAssignTask={handleAssignTask}
+              onDeleteTask={handleDeleteTask}
+              onAddTask={(id, title) => {
+                setTaskStory({ id, title });
+                setIsTaskModalOpen(true);
+              }}
+              userRole={userRole}
+            />
+          )}
+
+          {/* BOTTOM: Planned Sprints (Sprint Planning Area) */}
+          <div className="space-y-4 pt-4 border-t border-outline-variant/10">
+            <div className="flex justify-between items-center px-2">
+              <h3 className="text-lg font-bold text-on-surface-variant flex items-center gap-2">
+                <span className="material-symbols-outlined">event_note</span>
+                Sprint Planning
               </h3>
             </div>
             

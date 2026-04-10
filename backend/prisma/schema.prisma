@@ -17,6 +17,7 @@ model User {
   projects        ProjectMember[]
   assignedStories UserStory[]     @relation("AssignedStories")
   assignedTasks   Task[]          @relation("AssignedTasks")
+  standups        DailyStandup[]
 }
 
 model Project {

@@ -9,7 +9,16 @@ export default function KanbanColumn({
   status,
   stories = [],
   sprintId,
-  onUpdateStory,
+  onUpdateItem,
+  itemType = 'story', // 'story' or 'task'
+  columnId,           // Optional custom ID for swimlanes
+  onAssign,
+  onEdit,
+  onDelete,
+  userRole = 'MEMBER',
+  members = [],
+  onAssignTask,
+  onDeleteTask
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `column-${status}`,        // ID rõ ràng hơn để dễ debug
@@ -35,18 +44,30 @@ export default function KanbanColumn({
         strategy={verticalListSortingStrategy}
       >
         <div className="space-y-3 flex-1">
-          {stories.map((story) => (
-            <SortableUserStoryCard
-              key={story.id}
-              id={story.id}
-              {...story}
-              variant="sprint"
-              userRole="MEMBER"
-              onAssign={() => {}}
-              onEdit={() => {}}
-              onDelete={() => {}}
-              onMove={onUpdateStory}           // Callback cập nhật status + sprint
-            />
+          {items.map((item) => (
+            itemType === 'story' ? (
+              <SortableUserStoryCard
+                key={item.id}
+                id={item.id}
+                {...item}
+                variant="sprint"
+                userRole={userRole}
+                onAssign={onAssign}
+                onEdit={onEdit}
+                onDelete={onDelete}
+                onMove={onUpdateItem}
+              />
+            ) : (
+              <TaskCard
+                key={item.id}
+                {...item}
+                id={`task-${item.id}`}
+                members={members}
+                onUpdate={(data) => onUpdateItem(item.id, data)}
+                onDelete={() => onDeleteTask && onDeleteTask(item.id)}
+                onAssign={() => onAssignTask && onAssignTask(item.id)}
+              />
+            )
           ))}
 
           {stories.length === 0 && (
