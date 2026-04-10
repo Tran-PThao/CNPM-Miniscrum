@@ -11,7 +11,6 @@ export function TaskCard({
   assigneeId, 
   dueDate,
   members = [], 
-  userRole = 'MEMBER',
   onUpdate, 
   onDelete, 
   onAssign 
@@ -43,7 +42,6 @@ export function TaskCard({
   };
 
   const isOverdue = dueDate && new Date(dueDate) < new Date(new Date().setHours(0,0,0,0)) && status !== 'DONE';
-  const canEditDeadline = userRole === 'PO';
 
   return (
     <div
@@ -82,22 +80,20 @@ export function TaskCard({
             : dueDate 
               ? 'bg-secondary/5 text-secondary border-secondary/10' 
               : 'text-outline-variant border-transparent opacity-0 group-hover:opacity-100 hover:bg-surface-container'
-          } ${canEditDeadline ? 'cursor-pointer' : 'cursor-default'}`}
+          }`}
         >
           <span className="material-symbols-outlined text-[12px]">
             {isOverdue ? 'event_busy' : 'calendar_today'}
           </span>
-          {dueDate ? new Date(dueDate).toLocaleDateString('vi-VN') : 'Hạn chót'}
+          {dueDate ? new Date(dueDate).toLocaleDateString('vi-VN') : 'Đặt hạn chót'}
           
-          {canEditDeadline && (
-            <input
-              type="date"
-              className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-              value={dueDate ? new Date(dueDate).toISOString().split('T')[0] : ''}
-              onChange={handleDateChange}
-              onClick={(e) => e.stopPropagation()}
-            />
-          )}
+          <input
+            type="date"
+            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+            value={dueDate ? new Date(dueDate).toISOString().split('T')[0] : ''}
+            onChange={handleDateChange}
+            onClick={(e) => e.stopPropagation()}
+          />
         </div>
       </div>
 
