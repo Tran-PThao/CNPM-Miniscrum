@@ -156,7 +156,7 @@ app.get("/api/invitations", authMiddleware, async (req, res) => {
       where: { userId, status: "PENDING" },
       include: {
         project: {
-          select: { name: true, key: true }
+          select: { name: true }
         }
       }
     });
