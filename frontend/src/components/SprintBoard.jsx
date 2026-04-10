@@ -2,7 +2,7 @@
 import React from 'react';
 import KanbanColumn from './KanbanColumn';
 
-export default function SprintBoard({ sprint, stories = [], members = [], onUpdateStory, onEditStory, onUpdateTask, onAssignTask, onDeleteTask, onAddTask, userRole, currentUser }) {
+export default function SprintBoard({ sprint, stories = [], members = [], onUpdateStory, onEditStory, onUpdateTask, onAssignTask, onDeleteTask, onAddTask, userRole }) {
   // STORIES ARE THE SWIMLANES
   // TASKS ARE THE ITEMS IN THE COLUMNS
 
@@ -83,7 +83,6 @@ export default function SprintBoard({ sprint, stories = [], members = [], onUpda
               onAssignTask={onAssignTask}
               onDeleteTask={onDeleteTask}
               userRole={userRole}
-              currentUser={currentUser}
             />
             <KanbanColumn
               columnId={`taskcolumn-${story.id}-IN_PROGRESS`}
@@ -95,7 +94,6 @@ export default function SprintBoard({ sprint, stories = [], members = [], onUpda
               onAssignTask={onAssignTask}
               onDeleteTask={onDeleteTask}
               userRole={userRole}
-              currentUser={currentUser}
             />
             <KanbanColumn
               columnId={`taskcolumn-${story.id}-DONE`}
@@ -107,7 +105,6 @@ export default function SprintBoard({ sprint, stories = [], members = [], onUpda
               onAssignTask={onAssignTask}
               onDeleteTask={onDeleteTask}
               userRole={userRole}
-              currentUser={currentUser}
             />
           </div>
         ))}

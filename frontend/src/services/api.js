@@ -1,4 +1,3 @@
-//frontend/src/services/api.js
 import axios from 'axios';
 
 const api = axios.create({
@@ -49,15 +48,7 @@ export const getStoryTasks = (storyId) => api.get(`/userstory/${storyId}/tasks`)
 // COMMENTS
 export const getStoryComments = (storyId) => api.get(`/userstory/${storyId}/comments`);
 export const createStoryComment = (storyId, content) => api.post(`/userstory/${storyId}/comments`, { content });
-// TASK COMMENTS (US-046)
-export const getTaskComments = (taskId) => 
-  
-  api.get(`/tasks/${taskId}/comments`)
 
-
-export const createTaskComment = (taskId, content, authorId) => 
-  
-  api.post(`/tasks/${taskId}/comments`, { content, authorId });
 // LỜI MỜI
 export const getInvitations = () => api.get('/invitations');
 export const respondToInvitation = (id, action) => api.post(`/invitations/${id}/respond`, { action });
