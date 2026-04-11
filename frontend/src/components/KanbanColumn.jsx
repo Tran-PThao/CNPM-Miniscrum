@@ -3,11 +3,12 @@ import React from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortableUserStoryCard } from './SortableUserStoryCard';
+import { TaskCard } from './TaskCard';
 
 export default function KanbanColumn({
   title,
   status,
-  stories = [],
+  items = [],
   sprintId,
   onUpdateItem,
   itemType = 'story', // 'story' or 'task'
@@ -18,10 +19,11 @@ export default function KanbanColumn({
   userRole = 'MEMBER',
   members = [],
   onAssignTask,
-  onDeleteTask
+  onDeleteTask,
+  currentUser,        // ← THÊM DÒNG NÀY (bắt buộc cho CommentSection)
 }) {
   const { setNodeRef, isOver } = useDroppable({
-    id: `column-${status}`,        // ID rõ ràng hơn để dễ debug
+    id: columnId || `column-${status}`,
   });
 
   return (
@@ -34,13 +36,13 @@ export default function KanbanColumn({
       <div className="flex items-center justify-between mb-4 px-2">
         <h4 className="font-semibold text-on-surface">{title}</h4>
         <span className="text-xs bg-surface px-3 py-1 rounded-full text-on-surface-variant font-medium">
-          {stories.length}
+          {items.length}
         </span>
       </div>
 
       {/* Vùng sortable */}
       <SortableContext
-        items={stories.map(s => s.id)}
+        items={items.map(item => itemType === 'task' ? `task-${item.id}` : item.id)}
         strategy={verticalListSortingStrategy}
       >
         <div className="space-y-3 flex-1">
@@ -63,6 +65,8 @@ export default function KanbanColumn({
                 {...item}
                 id={`task-${item.id}`}
                 members={members}
+                userRole={userRole}
+                currentUser={currentUser}          // ← THÊM DÒNG NÀY (quan trọng nhất)
                 onUpdate={(data) => onUpdateItem(item.id, data)}
                 onDelete={() => onDeleteTask && onDeleteTask(item.id)}
                 onAssign={() => onAssignTask && onAssignTask(item.id)}
@@ -70,9 +74,9 @@ export default function KanbanColumn({
             )
           ))}
 
-          {stories.length === 0 && (
-            <div className="h-32 flex items-center justify-center border-2 border-dashed border-outline-variant/20 rounded-xl text-on-surface-variant/50 text-sm italic">
-              Chưa có task
+          {items.length === 0 && (
+            <div className="h-16 flex items-center justify-center border-2 border-dashed border-outline-variant/20 rounded-xl text-on-surface-variant/50 text-[10px] italic">
+              Trống
             </div>
           )}
         </div>

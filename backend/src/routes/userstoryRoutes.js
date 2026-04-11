@@ -264,5 +264,57 @@ router.get('/backlog', async (req, res) => {
     });
   }
 });
+// ==================== TASK COMMENTS - US-046 ====================
 
+// Lấy tất cả comment của Task
+router.get('/tasks/:taskId/comments', async (req, res) => {
+  try {
+    const { taskId } = req.params;
+
+    const comments = await prisma.comment.findMany({
+      where: { taskId },
+      include: {
+        user: {
+          select: { id: true, fullName: true, email: true }
+        }
+      },
+      orderBy: { createdAt: 'asc' }
+    });
+
+    res.json(comments);
+  } catch (error) {
+    console.error("Lỗi lấy comment Task:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Tạo comment mới cho Task
+router.post('/tasks/:taskId/comments', async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const { content, authorId } = req.body;
+
+    if (!content?.trim() || !authorId) {
+      return res.status(400).json({ error: "Thiếu nội dung hoặc authorId" });
+    }
+
+    const comment = await prisma.comment.create({
+      data: {
+        content: content.trim(),
+        userId: authorId,
+        taskId: taskId,
+      },
+      include: {
+        user: {
+          select: { id: true, fullName: true, email: true }
+        }
+      }
+    });
+
+    res.status(201).json(comment);
+  } catch (error) {
+    console.error("Lỗi tạo comment Task:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
 module.exports = router;

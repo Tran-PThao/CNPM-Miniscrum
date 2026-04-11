@@ -4,8 +4,6 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useState } from 'react';
 import CommentSection from './CommentSection';
-import AttachmentSection from './AttachmentSection';
-
 export function TaskCard({ 
   id, 
   title, 
@@ -169,14 +167,11 @@ export function TaskCard({
         </button>
 
        {showComments && (
-          <>
-            <CommentSection
-              entityId={cleanId}
-              entityType="task"
-              currentUser={currentUser || { id: "temp-id", fullName: "Test User" }}
-            />
-            <AttachmentSection entityId={cleanId} entityType="task" />
-          </>
+          <CommentSection
+            entityId={cleanId}
+            entityType="task"
+            currentUser={currentUser || { id: "temp-test-id", fullName: "Test User" }}
+          />
         )}
       </div>
     </div>

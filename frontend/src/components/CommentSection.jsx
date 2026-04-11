@@ -5,19 +5,12 @@ import {
   getTaskComments, 
   createTaskComment 
 } from '../services/api';
-import { useAuth } from '../context/AuthContext';
 
 export default function CommentSection({ 
   entityId, 
   entityType = 'story',   // 'story' hoặc 'task'
-  currentUser: currentUserProp  // fallback nếu truyền từ props
+  currentUser             // {id, fullName, email} - bắt buộc truyền vào
 }) {
-  const { user: authUser } = useAuth();
-  // Ưu tiên: useAuth() > prop > localStorage
-  const currentUser = authUser || currentUserProp || (() => {
-    try { return JSON.parse(localStorage.getItem('user')); } catch { return null; }
-  })();
-
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
   const [loading, setLoading] = useState(false);
@@ -47,7 +40,7 @@ export default function CommentSection({
   };
 
   const handleSubmit = async (e) => {
-    if (e) e.preventDefault();
+    e.preventDefault();
     if (!newComment.trim() || !currentUser?.id) {
       setError("Thiếu thông tin người dùng");
       return;
@@ -57,7 +50,7 @@ export default function CommentSection({
       setLoading(true);
       setError(null);
 
-      const res = await createCommentFn(entityId, newComment.trim());
+      const res = await createCommentFn(entityId, newComment.trim(), currentUser.id);
 
       // Thêm comment mới vào danh sách ngay lập tức (optimistic)
       setComments(prev => [...prev, res.data]);
@@ -120,7 +113,7 @@ export default function CommentSection({
       </div>
 
       {/* Ô nhập comment */}
-      <div className="flex gap-3">
+      <form onSubmit={handleSubmit} className="flex gap-3">
         <div className="flex-1 relative">
           <textarea
             className="w-full px-4 py-3 rounded-2xl border border-outline-variant bg-surface-container-lowest focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none resize-none text-xs min-h-[44px]"
@@ -138,14 +131,13 @@ export default function CommentSection({
           />
         </div>
         <button
-          type="button"
-          onClick={handleSubmit}
+          type="submit"
           disabled={loading || !newComment.trim()}
           className="w-11 h-11 bg-primary text-on-primary rounded-xl flex items-center justify-center shadow-lg hover:bg-primary/90 transition-all disabled:opacity-50"
         >
           <span className="material-symbols-outlined text-[20px]">send</span>
         </button>
-      </div>
+      </form>
 
       {error && <p className="mt-2 text-[10px] text-error">{error}</p>}
     </div>

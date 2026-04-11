@@ -2,16 +2,17 @@
 import React from 'react';
 import KanbanColumn from './KanbanColumn';
 
-export default function SprintBoard({ sprint, stories = [], members = [], onUpdateStory, onUpdateTask, onAssignTask, onDeleteTask, onAddTask, userRole }) {
+export default function SprintBoard({ sprint, stories = [], members = [], onUpdateStory, onEditStory, onUpdateTask, onAssignTask, onDeleteTask, onAddTask, userRole, currentUser }) {
   // STORIES ARE THE SWIMLANES
   // TASKS ARE THE ITEMS IN THE COLUMNS
 
   return (
-    <div>
-      <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
+    <div className="space-y-8">
+      <h3 className="text-xl font-bold mb-6 flex items-center gap-3 text-primary">
+        <span className="material-symbols-outlined">rocket_launch</span>
         {sprint.name}
-        <span className="text-sm font-normal text-on-surface-variant">
-          ({stories.length} tasks)
+        <span className="text-sm font-normal text-on-surface-variant bg-surface-container px-3 py-1 rounded-full">
+          {stories.length} User Stories
         </span>
       </h3>
 
@@ -28,8 +29,8 @@ export default function SprintBoard({ sprint, stories = [], members = [], onUpda
           <div key={story.id} className="grid grid-cols-1 md:grid-cols-[300px_1fr_1fr_1fr] gap-4 bg-surface-container-lowest/50 rounded-3xl p-4 border border-outline-variant/10 hover:border-primary/20 transition-all">
             
             {/* Story Swimlane Side */}
-            <div className="pr-4 md:border-r border-outline-variant/10 flex flex-col justify-center">
-              <div className="flex items-center gap-2 mb-2">
+            <div className="pr-4 md:border-r border-outline-variant/10 flex flex-col justify-center gap-3">
+              <div className="flex items-center gap-2">
                 <span className="text-[10px] font-mono font-bold bg-surface-container-high px-2 py-0.5 rounded text-on-surface-variant">
                   {story.id?.slice(-5)}
                 </span>
@@ -38,9 +39,29 @@ export default function SprintBoard({ sprint, stories = [], members = [], onUpda
                 }`}>
                   {story.priority}
                 </span>
+                {story.comments?.length > 0 && (
+                  <button 
+                    onClick={() => onEditStory && onEditStory(story)}
+                    className="flex items-center gap-1 text-[10px] font-bold text-primary bg-primary/5 px-2 py-0.5 rounded hover:bg-primary/10 transition-colors"
+                    title="Xem thảo luận"
+                  >
+                    <span className="material-symbols-outlined text-[12px]">forum</span>
+                    {story.comments.length}
+                  </button>
+                )}
               </div>
-              <h4 className="font-bold text-sm text-on-surface leading-tight mb-2">{story.title}</h4>
-              <p className="text-[11px] text-on-surface-variant line-clamp-2 leading-relaxed mb-3">{story.description}</p>
+              
+              <div 
+                className="cursor-pointer group/story"
+                onClick={() => onEditStory && onEditStory(story)}
+              >
+                <h4 className="font-bold text-sm text-on-surface leading-tight mb-1 group-hover/story:text-primary transition-colors">
+                  {story.title}
+                </h4>
+                <p className="text-[11px] text-on-surface-variant line-clamp-2 leading-relaxed opacity-70">
+                  {story.description}
+                </p>
+              </div>
               
               <button 
                 onClick={() => onAddTask && onAddTask(story.id, story.title)}
@@ -62,6 +83,7 @@ export default function SprintBoard({ sprint, stories = [], members = [], onUpda
               onAssignTask={onAssignTask}
               onDeleteTask={onDeleteTask}
               userRole={userRole}
+              currentUser={currentUser}
             />
             <KanbanColumn
               columnId={`taskcolumn-${story.id}-IN_PROGRESS`}
@@ -73,6 +95,7 @@ export default function SprintBoard({ sprint, stories = [], members = [], onUpda
               onAssignTask={onAssignTask}
               onDeleteTask={onDeleteTask}
               userRole={userRole}
+              currentUser={currentUser}
             />
             <KanbanColumn
               columnId={`taskcolumn-${story.id}-DONE`}
@@ -84,6 +107,7 @@ export default function SprintBoard({ sprint, stories = [], members = [], onUpda
               onAssignTask={onAssignTask}
               onDeleteTask={onDeleteTask}
               userRole={userRole}
+              currentUser={currentUser}
             />
           </div>
         ))}

@@ -1,3 +1,4 @@
+//frontend/src/pages/Board.jsx
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";

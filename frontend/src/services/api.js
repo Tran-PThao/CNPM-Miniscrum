@@ -50,25 +50,17 @@ export const getStoryTasks = (storyId) => api.get(`/userstory/${storyId}/tasks`)
 export const getStoryComments = (storyId) => api.get(`/userstory/${storyId}/comments`);
 export const createStoryComment = (storyId, content) => api.post(`/userstory/${storyId}/comments`, { content });
 // TASK COMMENTS (US-046)
-export const getTaskComments = (taskId) => api.get(`/tasks/${taskId}/comments`);
-export const createTaskComment = (taskId, content) => api.post(`/tasks/${taskId}/comments`, { content });
+export const getTaskComments = (taskId) => 
+  
+  api.get(`/tasks/${taskId}/comments`)
+
+
+export const createTaskComment = (taskId, content, authorId) => 
+  
+  api.post(`/tasks/${taskId}/comments`, { content, authorId });
 // LỜI MỜI
 export const getInvitations = () => api.get('/invitations');
 export const respondToInvitation = (id, action) => api.post(`/invitations/${id}/respond`, { action });
-
-export const uploadAttachment = (formData) => {
-  return api.post('/attachments/upload', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
-  });
-};
-
-export const getAttachments = (entityType, entityId) => {
-  return api.get(`/attachments?${entityType}Id=${entityId}`);
-};
-// Thêm hàm này vào api.js
-export const deleteAttachment = (id) => {
-  return api.delete(`/attachments/${id}`);
-};
 
 // MEMBERS
 export const getProjectMembers = (projectId) => api.get(`/project/${projectId}/members`);

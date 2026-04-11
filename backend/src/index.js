@@ -7,8 +7,6 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const userstoryRoutes = require('./routes/userstoryRoutes');
 const standupRoutes = require('./routes/standupRoutes');
-const multer = require('multer');
-const path = require('path');
 
 dotenv.config();
 const app = express();
@@ -892,54 +890,6 @@ app.post("/api/tasks/:taskId/comments", authMiddleware, async (req, res) => {
     res.status(500).json({ error: "Lỗi khi lưu bình luận cho Task" });
   }
 });
-
-const storage = multer.diskStorage({
-
-  destination: 'uploads/',
-
-  filename: (req, file, cb) => {
-
-    cb(null, Date.now() + '-' + file.originalname);
-
-  }
-
-});const upload = multer({ storage });// Route upload file
-
-app.post("/api/attachments/upload", authMiddleware, upload.single('file'), async (req, res) => {
-
-  const { taskId, userStoryId } = req.body;
-
-  const file = req.file;
-
-
-
-  const attachment = await prisma.attachment.create({
-
-    data: {
-
-      fileName: file.originalname,
-
-      fileUrl: `/uploads/${file.filename}`,
-
-      fileSize: file.size,
-
-      fileType: file.mimetype,
-
-      userId: req.user.id,
-
-      taskId: taskId || null,
-
-      userStoryId: userStoryId || null
-
-    }
-
-  });
-
-  res.status(201).json(attachment);
-
-});// Cho phép truy cập file tĩnh để xem/tải về
-
-app.use('/uploads', express.static('uploads'));
 // Lắng nghe cổng
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => {
