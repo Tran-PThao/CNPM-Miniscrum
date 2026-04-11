@@ -1,3 +1,4 @@
+//frontend/src/services/api.js
 import axios from 'axios';
 
 const api = axios.create({
@@ -45,18 +46,31 @@ export const assignTaskByEmail = (id, email) => api.patch(`/tasks/${id}/assign`,
 export const deleteTask = (id) => api.delete(`/tasks/${id}`);
 export const getStoryTasks = (storyId) => api.get(`/userstory/${storyId}/tasks`);
 
+// COMMENTS
+export const getStoryComments = (storyId) => api.get(`/userstory/${storyId}/comments`);
+export const createStoryComment = (storyId, content) => api.post(`/userstory/${storyId}/comments`, { content });
+// TASK COMMENTS (US-046)
+export const getTaskComments = (taskId) => api.get(`/tasks/${taskId}/comments`);
+export const createTaskComment = (taskId, content) => api.post(`/tasks/${taskId}/comments`, { content });
 // LỜI MỜI
 export const getInvitations = () => api.get('/invitations');
 export const respondToInvitation = (id, action) => api.post(`/invitations/${id}/respond`, { action });
 
+export const uploadAttachment = (formData) => {
+  return api.post('/attachments/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+};
+
+export const getAttachments = (entityType, entityId) => {
+  return api.get(`/attachments?${entityType}Id=${entityId}`);
+};
+// Thêm hàm này vào api.js
+export const deleteAttachment = (id) => {
+  return api.delete(`/attachments/${id}`);
+};
+
 // MEMBERS
 export const getProjectMembers = (projectId) => api.get(`/project/${projectId}/members`);
-
-// SPRINT CEREMONIES (US-023 & US-024)
-export const getSprintCeremonies = (sprintId) => api.get(`/sprints/${sprintId}/ceremonies`);
-export const getSprintReview = (sprintId) => api.get(`/sprints/${sprintId}/review`);
-export const saveSprintReview = (sprintId, data) => api.put(`/sprints/${sprintId}/review`, data);
-export const getSprintRetrospective = (sprintId) => api.get(`/sprints/${sprintId}/retrospective`);
-export const saveSprintRetrospective = (sprintId, data) => api.put(`/sprints/${sprintId}/retrospective`, data);
 
 export default api;

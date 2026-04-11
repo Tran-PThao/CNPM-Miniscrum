@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 function Login() {
   const [form, setForm] = useState({ email: "", password: "" });
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
@@ -23,6 +25,7 @@ function Login() {
       if (!res.ok) { setMessage(data.error || "Đăng nhập thất bại"); return; }
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
+      login(data.user); // Cập nhật AuthContext ngay lập tức
       navigate("/dashboard");
     } catch {
       setMessage("Không thể kết nối server");
