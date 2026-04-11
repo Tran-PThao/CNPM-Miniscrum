@@ -9,33 +9,13 @@ const userstoryRoutes = require('./routes/userstoryRoutes');
 const standupRoutes = require('./routes/standupRoutes');
 const multer = require('multer');
 const path = require('path');
-// ... các import khác
-const commentRoutes = require('./routes/commentRoutes');
-const attachmentRoutes = require('./routes/attachmentRoutes');
-
 
 dotenv.config();
 const app = express();
 const prisma = new PrismaClient();
-// Cấu hình CORS cho phép frontend truy cập
-app.use(cors({
-  origin: function (origin, callback) {
-    // Cho phép tất cả origin trong quá trình dev (bao gồm cả không có origin - Postman, mobile,...)
-    callback(null, true);
-  },
-  methods: ['GET', 'POST', 'PATCH', 'DELETE', 'PUT', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
-}));
+
+app.use(cors());
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
-
-// Đăng ký API
-app.use('/api', commentRoutes);
-app.use('/api/attachments', attachmentRoutes);
-
-
 // Middleware auth (dùng cho tất cả route cần quyền)
 const authMiddleware = (req, res, next) => {
   const token = req.headers.authorization?.split(" ")[1]; // Bearer token
@@ -159,8 +139,8 @@ app.post("/api/project/:projectId/invite", authMiddleware, async (req, res) => {
       where: { userId_projectId: { userId: requesterId, projectId } },
     });
 
-    if (!requester || (requester.role !== "PO" && requester.role !== "SM")) {
-      return res.status(403).json({ error: "Chỉ Product Owner (PO) hoặc Scrum Master (SM) mới có quyền mời thành viên!" });
+    if (!requester || requester.role !== "PO") {
+      return res.status(403).json({ error: "Chỉ Product Owner (PO) mới có quyền mời thành viên!" });
     }
 
     // Mời thành viên với trạng thái PENDING (dùng upsert để reset nếu họ đã từng ở trong dự án)
@@ -248,9 +228,9 @@ app.post("/api/project", authMiddleware, async (req, res) => {
       data: { name, description, goal },
     });
 
-    // Tự động gán người tạo làm Scrum Master (SM) thay vì PO theo yêu cầu
+    // Tự động gán người tạo làm Product Owner (PO)
     await prisma.projectMember.create({
-      data: { userId, projectId: project.id, role: "SM" }
+      data: { userId, projectId: project.id, role: "PO" }
     });
 
     res.json({ message: "Tạo Project thành công", projectId: project.id });
@@ -272,9 +252,9 @@ app.post("/api/project/:projectId/members", async (req, res) => {
       },
     });
 
-    if (!requester || (requester.role !== "PO" && requester.role !== "SM")) {
+    if (!requester || requester.role !== "PO") {
       return res.status(403).json({
-        error: "Chỉ Product Owner (PO) hoặc Scrum Master (SM) mới có quyền thêm thành viên!",
+        error: "Chỉ Product Owner (PO) mới có quyền thêm thành viên!",
       });
     }
 
@@ -607,28 +587,9 @@ app.patch("/api/sprint/:id", authMiddleware, async (req, res) => {
     const sprint = await prisma.sprint.findUnique({ where: { id } });
     if (!sprint) return res.status(404).json({ error: "Không tìm thấy Sprint" });
 
-    // Lấy thông tin role của người dùng trong dự án
-    const member = await prisma.projectMember.findUnique({
-      where: { userId_projectId: { userId: req.user.userId, projectId: sprint.projectId } },
-    });
-
-    if (!member || (member.role !== "PO" && member.role !== "SM")) {
-      return res.status(403).json({ error: "Bạn không có quyền cập nhật Sprint." });
-    }
-
-    // == US-049: Kiểm tra xung đột và quyền hạn khi Bắt đầu Sprint (Start Sprint) ==
-    if (status === 'ACTIVE' && sprint.status !== 'ACTIVE') {
-      // Chỉ SM mới được bắt đầu Sprint (Yêu cầu mới từ người dùng)
-      if (member.role !== "SM") {
-        return res.status(403).json({ error: "Chỉ Scrum Master mới có quyền bắt đầu Sprint!" });
-      }
-
-      const activeSprint = await prisma.sprint.findFirst({
-        where: { projectId: sprint.projectId, status: 'ACTIVE' }
-      });
-      if (activeSprint) {
-        return res.status(400).json({ error: `Dự án hiện đã có một Sprint đang hoạt động (${activeSprint.name}). Vui lòng kết thúc nó trước khi bắt đầu Sprint mới.` });
-      }
+    const hasPermission = await checkPOorSM(req.user.userId, sprint.projectId);
+    if (!hasPermission) {
+      return res.status(403).json({ error: "Chỉ Scrum Master hoặc PO mới được cập nhật Sprint." });
     }
 
     const updated = await prisma.sprint.update({
@@ -636,7 +597,7 @@ app.patch("/api/sprint/:id", authMiddleware, async (req, res) => {
       data: {
         name: name !== undefined ? name : undefined,
         goal: goal !== undefined ? goal : undefined,
-        startDate: (status === 'ACTIVE' && !startDate && !sprint.startDate) ? new Date() : (startDate ? new Date(startDate) : undefined),
+        startDate: startDate ? new Date(startDate) : undefined,
         endDate: endDate ? new Date(endDate) : undefined,
         status: status !== undefined ? status : undefined,
       }
@@ -670,22 +631,17 @@ app.get("/api/project/:projectId/dashboard", async (req, res) => {
     const done = stories.filter(s => s.status === 'DONE').length;
     const inProgress = stories.filter(s => s.status === 'IN_PROGRESS').length;
     const todo = stories.filter(s => s.status === 'TODO').length;
-    const rejected = stories.filter(s => s.status === 'REJECTED').length;
     
     // Sum storyPoints properly
     const completedPoints = stories.filter(s => s.status === 'DONE').reduce((sum, s) => sum + (s.storyPoints || 0), 0);
     const totalPoints = stories.reduce((sum, s) => sum + (s.storyPoints || 0), 0);
-    
-    // Only count stories that are NOT rejected for progress percentage
-    const totalActive = total - rejected;
-    const progressPercentage = totalActive > 0 ? Math.round((done / totalActive) * 100) : 0;
+    const progressPercentage = total > 0 ? Math.round((done / total) * 100) : 0;
     
     res.json({
       totalStories: total,
       completedStories: done,
       inProgressStories: inProgress,
       todoStories: todo,
-      rejectedStories: rejected,
       completedPoints,
       totalPoints,
       progressPercentage
@@ -740,8 +696,8 @@ app.patch("/api/project/:projectId/members/:userId/role", authMiddleware, async 
     const requester = await prisma.projectMember.findUnique({
       where: { userId_projectId: { userId: requesterId, projectId } },
     });
-    if (!requester || (requester.role !== "PO" && requester.role !== "SM")) {
-      return res.status(403).json({ error: "Chỉ PO hoặc SM mới được phân quyền!" });
+    if (!requester || requester.role !== "PO") {
+      return res.status(403).json({ error: "Chỉ PO mới được phân quyền!" });
     }
     if (requesterId === userId) {
       return res.status(400).json({ error: "Không thể đổi role của chính mình!" });
@@ -766,8 +722,8 @@ app.delete("/api/project/:projectId/members/:userId", authMiddleware, async (req
       where: { userId_projectId: { userId: requesterId, projectId } },
     });
 
-    if (!requester || (requester.role !== "PO" && requester.role !== "SM")) {
-      return res.status(403).json({ error: "Chỉ Product Owner (PO) hoặc Scrum Master (SM) mới có quyền kick thành viên!" });
+    if (!requester || requester.role !== "PO") {
+      return res.status(403).json({ error: "Chỉ Product Owner (PO) mới có quyền kick thành viên!" });
     }
 
     if (requesterId === userId) {
@@ -937,9 +893,53 @@ app.post("/api/tasks/:taskId/comments", authMiddleware, async (req, res) => {
   }
 });
 
-// Cho phép truy cập file tĩnh để xem/tải về (duplicate đã loại bỏ, dùng route file attachmentRoutes)
+const storage = multer.diskStorage({
+
+  destination: 'uploads/',
+
+  filename: (req, file, cb) => {
+
+    cb(null, Date.now() + '-' + file.originalname);
+
+  }
+
+});const upload = multer({ storage });// Route upload file
+
+app.post("/api/attachments/upload", authMiddleware, upload.single('file'), async (req, res) => {
+
+  const { taskId, userStoryId } = req.body;
+
+  const file = req.file;
 
 
+
+  const attachment = await prisma.attachment.create({
+
+    data: {
+
+      fileName: file.originalname,
+
+      fileUrl: `/uploads/${file.filename}`,
+
+      fileSize: file.size,
+
+      fileType: file.mimetype,
+
+      userId: req.user.id,
+
+      taskId: taskId || null,
+
+      userStoryId: userStoryId || null
+
+    }
+
+  });
+
+  res.status(201).json(attachment);
+
+});// Cho phép truy cập file tĩnh để xem/tải về
+
+app.use('/uploads', express.static('uploads'));
 // Lắng nghe cổng
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => {
