@@ -19,6 +19,12 @@ import BacklogHeader from "../components/BacklogHeader";
 import SprintSection from "../components/SprintSection";
 import ProductBacklog from "../components/ProductBacklog";
 import TaskBoard from "../components/TaskBoard";
+import CreateStoryModal from "../components/CreateStoryModal";
+import CreateSprintModal from "../components/CreateSprintModal";
+import CreateTaskModal from "../components/CreateTaskModal";
+import StartSprintModal from "../components/StartSprintModal";
+import CompleteSprintModal from "../components/CompleteSprintModal";
+import SprintCeremonyModal from "../components/SprintCeremonyModal";
 import api, { 
   getStoriesByProject, 
   createUserStory, 
@@ -51,8 +57,12 @@ export default function Backlog() {
   const [members, setMembers] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSprintModalOpen, setIsSprintModalOpen] = useState(false);
-  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
-  const [taskStory, setTaskStory] = useState(null);
+  const [isStartSprintModalOpen, setIsStartSprintModalOpen] = useState(false);
+  const [isCompleteSprintModalOpen, setIsCompleteSprintModalOpen] = useState(false);
+  const [isCeremonyModalOpen, setIsCeremonyModalOpen] = useState(false);
+  const [sprintToStart, setSprintToStart] = useState(null);
+  const [sprintToComplete, setSprintToComplete] = useState(null);
+  const [ceremonySprint, setCeremonySprint] = useState(null);
   const [editingStory, setEditingStory] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -350,7 +360,7 @@ export default function Backlog() {
       await loadData();
     } catch (err) {
       console.error("Lỗi cập nhật status Sprint:", err);
-      alert("Không thể cập nhật trạng thái Sprint.");
+      alert(err.response?.data?.error || "Không thể cập nhật trạng thái Sprint.");
     }
   };
 
@@ -583,38 +593,97 @@ export default function Backlog() {
                 </button>
               )}
             </div>
-            
-            {plannedSprints.length > 0 ? (
-              plannedSprints.map(sprint => (
-                <SprintSection 
-                  key={sprint.id}
-                  sprint={sprint}
-                  stories={stories.filter(s => s.sprintId === sprint.id)} 
-                  onAssign={handleAssignStory}
-                  onEdit={handleEditStory}
-                  onDelete={handleDeleteStory}
-                  onStatusChange={handleSprintStatusChange}
-                  userRole={userRole}
-                  selectedStories={selectedStories}
-                  onToggleSelect={toggleStorySelection}
-                  onSelectAll={handleSelectAll}
-                  onMoveToBacklog={async (id) => {
-                    try {
-                      await updateUserStory(id, { sprintId: null, status: "BACKLOG" });
-                      await loadData();
-                    } catch (err) {
-                      console.error(err);
-                      alert("Không thể rút về Backlog");
-                    }
-                  }}
-                />
-              ))
-            ) : (
-              <div className="p-10 border-2 border-dashed border-outline-variant/20 rounded-3xl flex flex-col items-center justify-center text-on-surface-variant/50 gap-2 bg-surface-container-low/30">
-                <span className="material-symbols-outlined text-4xl">inventory_2</span>
-                <p className="text-sm font-medium">No planned sprints. Create one to start planning.</p>
-              </div>
-            )}
+
+            <div className="space-y-4">
+              {activeSprints.map(sprint => (
+                <div key={sprint.id} className="relative">
+                  <div className="absolute -left-2 top-0 bottom-0 w-1 bg-primary rounded-full shadow-[0_0_10px_rgba(var(--primary-rgb),0.5)] z-10"></div>
+                  <SprintSection
+                    sprint={sprint}
+                    stories={stories.filter(s => s.sprintId === sprint.id)}
+                    onAssign={handleAssignStory}
+                    onEdit={handleEditStory}
+                    onDelete={handleDeleteStory}
+                    onStatusChange={handleSprintStatusChange}
+                    onStartClick={(sprint, stories) => {
+                      setSprintToStart({ sprint, stories });
+                      setIsStartSprintModalOpen(true);
+                    }}
+                    onCompleteClick={(sprint, stories) => {
+                      setSprintToComplete({ sprint, stories });
+                      setIsCompleteSprintModalOpen(true);
+                    }}
+                    onCeremonyClick={(sprint) => {
+                      setCeremonySprint(sprint);
+                      setIsCeremonyModalOpen(true);
+                    }}
+                    userRole={userRole}
+                    selectedStories={selectedStories}
+                    onToggleSelect={toggleStorySelection}
+                    onSelectAll={handleSelectAll}
+                    onMoveToBacklog={async (id) => {
+                      try {
+                        await updateUserStory(id, { sprintId: null, status: "BACKLOG" });
+                        await loadData();
+                      } catch (err) {
+                        console.error(err);
+                        alert("Không thể rút về Backlog");
+                      }
+                    }}
+                    onAddTask={(id, title) => {
+                      setTaskStory({ id, title });
+                      setIsTaskModalOpen(true);
+                    }}
+                  />
+                </div>
+              ))}
+
+              {plannedSprints.length > 0 ? (
+                plannedSprints.map(sprint => (
+                  <SprintSection
+                    key={sprint.id}
+                    sprint={sprint}
+                    stories={stories.filter(s => s.sprintId === sprint.id)}
+                    onAssign={handleAssignStory}
+                    onEdit={handleEditStory}
+                    onDelete={handleDeleteStory}
+                    onStatusChange={handleSprintStatusChange}
+                    onStartClick={(sprint, stories) => {
+                      setSprintToStart({ sprint, stories });
+                      setIsStartSprintModalOpen(true);
+                    }}
+                    onCeremonyClick={(sprint) => {
+                      setCeremonySprint(sprint);
+                      setIsCeremonyModalOpen(true);
+                    }}
+                    userRole={userRole}
+                    selectedStories={selectedStories}
+                    onToggleSelect={toggleStorySelection}
+                    onSelectAll={handleSelectAll}
+                    onMoveToBacklog={async (id) => {
+                      try {
+                        await updateUserStory(id, { sprintId: null, status: "BACKLOG" });
+                        await loadData();
+                      } catch (err) {
+                        console.error(err);
+                        alert("Không thể rút về Backlog");
+                      }
+                    }}
+                    onAddTask={(id, title) => {
+                      setTaskStory({ id, title });
+                      setIsTaskModalOpen(true);
+                    }}
+                  />
+                ))
+              ) : (
+                activeSprints.length === 0 && (
+                  <div className="p-10 border-2 border-dashed border-outline-variant/20 rounded-3xl flex flex-col items-center justify-center text-on-surface-variant/50 gap-2 bg-surface-container-low/30">
+                    <span className="material-symbols-outlined text-4xl">inventory_2</span>
+                    <p className="text-sm font-medium">No planned sprints. Create one to start planning.</p>
+                  </div>
+                )
+              )}
+            </div>
           </div>
         </div>
       </DndContext>
@@ -680,6 +749,13 @@ export default function Backlog() {
         onSubmit={handleCreateTask}
         loading={isSubmitting}
         storyTitle={taskStory?.title}
+      />
+
+      <SprintCeremonyModal
+        isOpen={isCeremonyModalOpen}
+        onClose={() => setIsCeremonyModalOpen(false)}
+        sprint={ceremonySprint}
+        userRole={userRole}
       />
     </MainLayout>
   );

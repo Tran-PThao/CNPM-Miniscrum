@@ -1,14 +1,14 @@
 import { useDroppable } from '@dnd-kit/core';
 import UserStoryCard from "./UserStoryCard";
 
-export default function SprintSection({ sprint, stories = [], onMoveToBacklog, onAssign, onEdit, onDelete, onStatusChange, userRole, selectedStories = [], onToggleSelect, onSelectAll }) {
+export default function SprintSection({ sprint, stories = [], onMoveToBacklog, onAssign, onEdit, onDelete, onStatusChange, onStartClick, onCompleteClick, onCeremonyClick, userRole, selectedStories = [], onToggleSelect, onSelectAll, onAddTask }) {
   const isManagement = userRole === "PO" || userRole === "SM";
   const { setNodeRef, isOver } = useDroppable({
     id: `sprint-${sprint.id}`,
   });
 
-  const progress = stories.length > 0 
-    ? Math.round((stories.filter(s => s.status === 'DONE').length / stories.length) * 100) 
+  const progress = stories.length > 0
+    ? Math.round((stories.filter(s => s.status === 'DONE').length / stories.length) * 100)
     : 0;
 
   const handleStartSprint = () => {
@@ -29,7 +29,7 @@ export default function SprintSection({ sprint, stories = [], onMoveToBacklog, o
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
           {onSelectAll && (
-            <input 
+            <input
               type="checkbox"
               className="w-5 h-5 cursor-pointer accent-primary shrink-0"
               checked={stories.length > 0 && stories.every(s => selectedStories.includes(s.id))}
@@ -38,13 +38,12 @@ export default function SprintSection({ sprint, stories = [], onMoveToBacklog, o
             />
           )}
           <h3 className="font-['Manrope'] font-bold text-lg text-on-surface">{sprint.name}</h3>
-          <span className={`text-[10px] px-2 py-0.5 rounded uppercase font-bold tracking-widest ${
-            sprint.status === 'ACTIVE' 
-              ? 'bg-primary-container text-on-primary-container shadow-sm shadow-primary/20' 
+          <span className={`text-[10px] px-2 py-0.5 rounded uppercase font-bold tracking-widest ${sprint.status === 'ACTIVE'
+              ? 'bg-primary-container text-on-primary-container shadow-sm shadow-primary/20'
               : sprint.status === 'COMPLETED'
-              ? 'bg-surface-variant text-on-surface-variant opacity-60'
-              : 'bg-surface-container-highest text-on-surface-variant'
-          }`}>
+                ? 'bg-surface-variant text-on-surface-variant opacity-60'
+                : 'bg-surface-container-highest text-on-surface-variant'
+            }`}>
             {sprint.status}
           </span>
           {sprint.startDate && (
@@ -55,7 +54,19 @@ export default function SprintSection({ sprint, stories = [], onMoveToBacklog, o
         </div>
         {sprint.goal && (
           <p className="text-xs text-on-surface-variant italic mb-2 px-2 mt-1 border-l-2 border-primary/20">
-            Mục tiêu: {sprint.goal}
+            Mục tiêu: {(() => {
+              try {
+                const parsed = JSON.parse(sprint.goal);
+                // Nếu parse thành công và là object có 'text', hiển thị 'text'
+                if (parsed && typeof parsed === 'object' && 'text' in parsed) {
+                  return parsed.text || "Chưa có mục tiêu";
+                }
+                return sprint.goal;
+              } catch (e) {
+                // Nếu không phải JSON, hiển thị nguyên chuỗi
+                return sprint.goal;
+              }
+            })()}
           </p>
         )}
         <div className="flex items-center gap-6">
@@ -65,17 +76,17 @@ export default function SprintSection({ sprint, stories = [], onMoveToBacklog, o
             </span>
             <div className="w-32 h-1.5 bg-surface-container-highest rounded-full mt-1 overflow-hidden shadow-inner">
               <div
-                className={`h-full rounded-full transition-all duration-700 ${
-                  sprint.status === 'COMPLETED' ? 'bg-outline' : 'bg-gradient-to-r from-primary to-primary-container'
-                }`}
+                className={`h-full rounded-full transition-all duration-700 ${sprint.status === 'COMPLETED' ? 'bg-outline' : 'bg-gradient-to-r from-primary to-primary-container'
+                  }`}
                 style={{ width: `${progress}%` }}
               />
             </div>
           </div>
           {isManagement && (
-            <>
+            <div className="flex items-center gap-2">
+              {/* Nút Start Sprint: Chỉ dành cho PLANNED */}
               {sprint.status === 'PLANNED' && (
-                <button 
+                <button
                   onClick={handleStartSprint}
                   className="px-4 py-1.5 bg-primary text-on-primary text-xs font-black uppercase tracking-widest rounded-full hover:scale-105 transition-all shadow-md shadow-primary/20 flex items-center gap-1"
                 >
@@ -83,35 +94,57 @@ export default function SprintSection({ sprint, stories = [], onMoveToBacklog, o
                   Start Sprint
                 </button>
               )}
+
+              {/* Nút Sprint Ceremony và Complete Sprint: Chỉ dành cho ACTIVE */}
               {sprint.status === 'ACTIVE' && (
-                <button 
-                  onClick={handleCompleteSprint}
-                  className="text-primary text-xs font-black uppercase tracking-widest flex items-center gap-1 hover:opacity-80 transition-opacity border border-primary/20 px-3 py-1.5 rounded-full"
+                <>
+                  <button
+                    onClick={() => onCeremonyClick && onCeremonyClick(sprint)}
+                    className="text-primary text-xs font-black uppercase tracking-widest flex items-center gap-1 hover:opacity-80 transition-opacity border border-primary/20 px-3 py-1.5 rounded-full"
+                  >
+                    <span className="material-symbols-outlined text-sm">celebration</span>
+                    Sprint Ceremony
+                  </button>
+
+                  <button
+                    onClick={handleCompleteSprint}
+                    className="text-primary text-xs font-black uppercase tracking-widest flex items-center gap-1 hover:opacity-80 transition-opacity border border-primary/20 px-3 py-1.5 rounded-full"
+                  >
+                    <span className="material-symbols-outlined text-sm">done_all</span>
+                    Complete Sprint
+                  </button>
+                </>
+              )}
+
+              {/* Nút Xem Ceremony: Khi đã kết thúc */}
+              {sprint.status === 'COMPLETED' && (
+                <button
+                  onClick={() => onCeremonyClick && onCeremonyClick(sprint)}
+                  className="text-on-surface-variant text-xs font-black uppercase tracking-widest flex items-center gap-1 hover:opacity-80 transition-opacity border border-outline-variant/20 px-3 py-1.5 rounded-full opacity-70"
                 >
-                  <span className="material-symbols-outlined text-sm">done_all</span>
-                  Complete Sprint
+                  <span className="material-symbols-outlined text-sm">celebration</span>
+                  Xem Ceremony
                 </button>
               )}
-            </>
+            </div>
           )}
         </div>
       </div>
 
       {/* Story cards with Droppable Area */}
-      <div 
+      <div
         ref={setNodeRef}
-        className={`space-y-3 p-4 rounded-3xl min-h-[100px] border-2 transition-all duration-300 ${
-          isOver 
-            ? 'bg-primary/5 border-primary border-dashed shadow-inner scale-[1.01]' 
+        className={`space-y-3 p-4 rounded-3xl min-h-[100px] border-2 transition-all duration-300 ${isOver
+            ? 'bg-primary/5 border-primary border-dashed shadow-inner scale-[1.01]'
             : 'bg-surface-container-low border-outline-variant/10'
-        }`}
+          }`}
       >
         {stories.length > 0 ? (
           stories.map((story) => (
-            <UserStoryCard 
-              key={story.id} 
-              {...story} 
-              variant="sprint" 
+            <UserStoryCard
+              key={story.id}
+              {...story}
+              variant="sprint"
               onMove={onMoveToBacklog}
               onAssign={onAssign}
               onEdit={onEdit}
@@ -125,8 +158,8 @@ export default function SprintSection({ sprint, stories = [], onMoveToBacklog, o
           ))
         ) : (
           <div className="py-6 flex flex-col items-center justify-center text-on-surface-variant/40 border-2 border-dashed border-outline-variant/10 rounded-2xl italic text-xs">
-             <span className="material-symbols-outlined text-3xl mb-1 opacity-20">inventory_2</span>
-             {isOver ? "Thả tại đây để thêm vào Sprint" : "Chưa có Story nào trong Sprint này."}
+            <span className="material-symbols-outlined text-3xl mb-1 opacity-20">inventory_2</span>
+            {isOver ? "Thả tại đây để thêm vào Sprint" : "Chưa có Story nào trong Sprint này."}
           </div>
         )}
       </div>
