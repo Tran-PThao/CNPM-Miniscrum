@@ -105,7 +105,7 @@ export default function ManageMembers() {
   };
 
   const currentMember = members.find(m => m.userId === currentUser.id);
-  const isPO = currentMember?.role === 'PO';
+  const isManagement = currentMember?.role === 'PO' || currentMember?.role === 'SM';
 
   const avatarColor = (name = "U") => {
     const colors = ['bg-primary', 'bg-tertiary', 'bg-error', 'bg-secondary'];
@@ -136,7 +136,7 @@ export default function ManageMembers() {
             <div className="flex-1">
               <h1 className="text-3xl font-extrabold text-on-surface tracking-tighter mb-1">Thành viên Dự án</h1>
               <p className="text-sm text-on-surface-variant font-medium">
-                {isPO ? 'Bạn là Product Owner — có quyền thay đổi vai trò.' : 'Bạn đang xem danh sách thành viên dự án.'}
+                {isManagement ? 'Bạn là Quản trị viên (PO/SM) — có quyền thay đổi vai trò và mời thành viên.' : 'Bạn đang xem danh sách thành viên dự án.'}
               </p>
             </div>
             <div className="bg-primary/5 px-4 py-3 rounded-2xl flex flex-col items-center min-w-[100px]">
@@ -147,7 +147,7 @@ export default function ManageMembers() {
 
           <div className="p-8">
             {/* SMART INVITE SECTION */}
-            {isPO && (
+            {isManagement && (
               <div className="mb-10 relative">
                 <label className="block text-xs font-black text-primary uppercase tracking-widest mb-3">Mời thành viên mới</label>
                 <div className="relative group">
@@ -246,7 +246,7 @@ export default function ManageMembers() {
                         </div>
                       )}
 
-                      {isPO && member.userId !== currentUser.id && (
+                      {isManagement && member.userId !== currentUser.id && (
                         <button 
                           onClick={() => handleKick(member.userId, member.user.fullName)}
                           className="p-2 text-error hover:bg-error/10 rounded-xl transition-all"
@@ -256,7 +256,7 @@ export default function ManageMembers() {
                         </button>
                       )}
 
-                      {isPO && member.userId !== currentUser.id ? (
+                      {isManagement && member.userId !== currentUser.id ? (
                         <div className="relative">
                           <select
                             value={member.role}
