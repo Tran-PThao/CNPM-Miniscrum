@@ -674,6 +674,31 @@ app.patch("/api/sprint/:id", authMiddleware, async (req, res) => {
       }
     }
 
+    // == US-050: Logic kết thúc Sprint (Complete Sprint) ==
+    if (status === 'COMPLETED' && sprint.status === 'ACTIVE') {
+      if (member.role !== "SM") {
+        return res.status(403).json({ error: "Chỉ Scrum Master mới có quyền kết thúc Sprint!" });
+      }
+
+      const { moveUnfinishedTo } = req.body;
+      if (moveUnfinishedTo) {
+        // Tìm các story chưa hoàn thành (không phải DONE và không phải REJECTED)
+        const unfinishedStories = await prisma.userStory.findMany({
+          where: { sprintId: id, NOT: [{ status: 'DONE' }, { status: 'REJECTED' }] }
+        });
+
+        if (unfinishedStories.length > 0) {
+          const targetSprintId = moveUnfinishedTo === 'BACKLOG' ? null : moveUnfinishedTo;
+          const targetStatus = moveUnfinishedTo === 'BACKLOG' ? 'BACKLOG' : 'TODO';
+          
+          await prisma.userStory.updateMany({
+            where: { id: { in: unfinishedStories.map(s => s.id) } },
+            data: { sprintId: targetSprintId, status: targetStatus }
+          });
+        }
+      }
+    }
+
     const updated = await prisma.sprint.update({
       where: { id },
       data: {
