@@ -24,7 +24,6 @@ import CreateSprintModal from "../components/CreateSprintModal";
 import CreateTaskModal from "../components/CreateTaskModal";
 import StartSprintModal from "../components/StartSprintModal";
 import CompleteSprintModal from "../components/CompleteSprintModal";
-import SprintCeremonyModal from "../components/SprintCeremonyModal";
 import api, { 
   getStoriesByProject, 
   createUserStory, 
@@ -59,10 +58,8 @@ export default function Backlog() {
   const [isSprintModalOpen, setIsSprintModalOpen] = useState(false);
   const [isStartSprintModalOpen, setIsStartSprintModalOpen] = useState(false);
   const [isCompleteSprintModalOpen, setIsCompleteSprintModalOpen] = useState(false);
-  const [isCeremonyModalOpen, setIsCeremonyModalOpen] = useState(false);
   const [sprintToStart, setSprintToStart] = useState(null);
   const [sprintToComplete, setSprintToComplete] = useState(null);
-  const [ceremonySprint, setCeremonySprint] = useState(null);
   const [editingStory, setEditingStory] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -613,10 +610,6 @@ export default function Backlog() {
                       setSprintToComplete({ sprint, stories });
                       setIsCompleteSprintModalOpen(true);
                     }}
-                    onCeremonyClick={(sprint) => {
-                      setCeremonySprint(sprint);
-                      setIsCeremonyModalOpen(true);
-                    }}
                     userRole={userRole}
                     selectedStories={selectedStories}
                     onToggleSelect={toggleStorySelection}
@@ -756,6 +749,15 @@ export default function Backlog() {
         onClose={() => setIsCeremonyModalOpen(false)}
         sprint={ceremonySprint}
         userRole={userRole}
+      />
+
+      <CompleteSprintModal
+        isOpen={isCompleteSprintModalOpen}
+        onClose={() => setIsCompleteSprintModalOpen(false)}
+        sprint={sprintToComplete?.sprint}
+        stories={sprintToComplete?.stories}
+        plannedSprints={sprints.filter(s => s.status === 'PLANNED')}
+        onCompleted={loadData}
       />
     </MainLayout>
   );

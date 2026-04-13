@@ -618,8 +618,8 @@ app.patch("/api/sprint/:id", authMiddleware, async (req, res) => {
 
     // == US-050: Logic kết thúc Sprint (Complete Sprint) ==
     if (status === 'COMPLETED' && sprint.status === 'ACTIVE') {
-      if (member.role !== "SM" && member.role !== "PO") {
-        return res.status(403).json({ error: "Chỉ Scrum Master hoặc Product Owner (Chủ dự án) mới có quyền kết thúc Sprint!" });
+      if (member.role !== "SM") {
+        return res.status(403).json({ error: "Chỉ Scrum Master mới có quyền kết thúc Sprint!" });
       }
 
       const { moveUnfinishedTo } = req.body;
@@ -632,7 +632,7 @@ app.patch("/api/sprint/:id", authMiddleware, async (req, res) => {
         if (unfinishedStories.length > 0) {
           const targetSprintId = moveUnfinishedTo === 'BACKLOG' ? null : moveUnfinishedTo;
           const targetStatus = moveUnfinishedTo === 'BACKLOG' ? 'BACKLOG' : 'TODO';
-
+          
           await prisma.userStory.updateMany({
             where: { id: { in: unfinishedStories.map(s => s.id) } },
             data: { sprintId: targetSprintId, status: targetStatus }
