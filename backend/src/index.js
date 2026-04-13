@@ -395,8 +395,20 @@ app.patch("/api/userstory/:id", authMiddleware, async (req, res) => {
         backlogOrder: req.body.backlogOrder !== undefined ? req.body.backlogOrder : undefined,
       },
     });
+
+    // Nếu thay đổi status, lưu lại lịch sử
+    if (status !== undefined && status !== story.status) {
+      await prisma.userStoryStatusHistory.create({
+        data: {
+          storyId: id,
+          status: status
+        }
+      });
+    }
+
     res.json({ message: "Cập nhật thành công", story: updated });
   } catch (err) {
+    console.error("Update story error:", err);
     res.status(500).json({ error: "Lỗi cập nhật User Story" });
   }
 });
@@ -646,6 +658,186 @@ app.get("/api/project/:projectId/dashboard", async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ error: "Lỗi lấy dữ liệu Dashboard" });
+  }
+});
+
+// === ANALYTICS API (US-025, US-026, US-027) ===
+
+// 1. BURNDOWN CHART DATA
+app.get("/api/analytics/:projectId/sprint/:sprintId/burndown", authMiddleware, async (req, res) => {
+  const { sprintId } = req.params;
+  try {
+    const sprint = await prisma.sprint.findUnique({
+      where: { id: sprintId },
+      include: { stories: { include: { statusHistory: true } } }
+    });
+
+    if (!sprint || !sprint.startDate || !sprint.endDate) {
+      return res.status(400).json({ error: "Sprint chưa có ngày bắt đầu/kết thúc hoặc không tồn tại." });
+    }
+
+    const start = new Date(sprint.startDate);
+    const end = new Date(sprint.endDate);
+    const days = [];
+    let curr = new Date(start);
+    while (curr <= end) {
+      days.push(new Date(curr));
+      curr.setDate(curr.getDate() + 1);
+    }
+    // Đảm bảo include ngày cuối nếu chưa có
+    if (days[days.length - 1] < end) days.push(new Date(end));
+
+    const totalPoints = sprint.stories.reduce((sum, s) => sum + (s.storyPoints || 0), 0);
+    const data = days.map(day => {
+      const dayStr = day.toISOString().split('T')[0];
+      
+      // Tính toán số điểm còn lại tính tới cuối ngày này
+      let remainingPoints = totalPoints;
+      sprint.stories.forEach(story => {
+        // Tìm lịch sử chuyển sang DONE trước hoặc trong ngày này
+        const doneHistory = story.statusHistory
+          .filter(h => h.status === 'DONE' && new Date(h.changedAt) <= day)
+          .sort((a, b) => new Date(b.changedAt) - new Date(a.changedAt))[0];
+
+        if (doneHistory) {
+          remainingPoints -= (story.storyPoints || 0);
+        }
+      });
+
+      // Ideal line calculation
+      const totalDays = (end - start) / (1000 * 60 * 60 * 24);
+      const daysPassed = (day - start) / (1000 * 60 * 60 * 24);
+      const ideal = Math.max(0, totalPoints - (totalPoints / totalDays) * daysPassed);
+
+      return {
+        date: dayStr,
+        actual: remainingPoints,
+        ideal: parseFloat(ideal.toFixed(2))
+      };
+    });
+
+    res.json(data);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Lỗi tính toán Burndown" });
+  }
+});
+
+app.get("/api/analytics/:projectId/velocity", authMiddleware, async (req, res) => {
+  const { projectId } = req.params;
+  console.log(`[Analytics] Fetching Velocity for project: ${projectId}`);
+  try {
+    const sprints = await prisma.sprint.findMany({
+      where: { projectId, status: 'COMPLETED' },
+      include: { stories: true },
+      orderBy: { createdAt: 'asc' }
+    });
+
+    console.log(`[Analytics] Found ${sprints.length} completed sprints for velocity.`);
+
+    const data = sprints.map(sprint => {
+      const commitment = sprint.stories.reduce((sum, s) => sum + (s.storyPoints || 0), 0);
+      const completed = sprint.stories
+        .filter(s => s.status === 'DONE')
+        .reduce((sum, s) => sum + (s.storyPoints || 0), 0);
+      
+      return {
+        name: sprint.name,
+        commitment,
+        completed
+      };
+    });
+
+    res.json(data);
+  } catch (err) {
+    console.error("[Analytics] Velocity calculation error:", err);
+    res.status(500).json({ error: "Lỗi tính toán Velocity" });
+  }
+});
+
+// 3. SPRINT REPORT EXPORT (US-027)
+app.get("/api/analytics/:projectId/sprint/:sprintId/report", authMiddleware, async (req, res) => {
+  const { sprintId } = req.params;
+  const { format } = req.query; // 'pdf' or 'excel'
+
+  try {
+    const sprint = await prisma.sprint.findUnique({
+      where: { id: sprintId },
+      include: { 
+        stories: { 
+          include: { 
+            tasks: true,
+            assignee: { select: { fullName: true } }
+          } 
+        },
+        project: true
+      }
+    });
+
+    if (!sprint) return res.status(404).json({ error: "Sprint không tồn tại" });
+
+    if (format === 'excel') {
+      const ExcelJS = require('exceljs');
+      const workbook = new ExcelJS.Workbook();
+      const sheet = workbook.addWorksheet('Sprint Report');
+
+      sheet.columns = [
+        { header: 'Title', key: 'title', width: 30 },
+        { header: 'Points', key: 'points', width: 10 },
+        { header: 'Status', key: 'status', width: 15 },
+        { header: 'Assignee', key: 'assignee', width: 20 },
+        { header: 'Tasks Count', key: 'tasks', width: 15 },
+      ];
+
+      sprint.stories.forEach(s => {
+        sheet.addRow({
+          title: s.title,
+          points: s.storyPoints || 0,
+          status: s.status,
+          assignee: s.assignee?.fullName || 'Unassigned',
+          tasks: s.tasks.length
+        });
+      });
+
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename=Sprint_Report_${sprint.name}.xlsx`);
+      await workbook.xlsx.write(res);
+      res.end();
+      return;
+    }
+
+    if (format === 'pdf') {
+      const PDFDocument = require('pdfkit');
+      const doc = new PDFDocument();
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename=Sprint_Report_${sprint.name}.pdf`);
+      doc.pipe(res);
+
+      doc.fontSize(20).text(`Sprint Report: ${sprint.name}`, { align: 'center' });
+      doc.moveDown();
+      doc.fontSize(14).text(`Project: ${sprint.project.name}`);
+      doc.text(`Duration: ${sprint.startDate?.toLocaleDateString() || 'N/A'} - ${sprint.endDate?.toLocaleDateString() || 'N/A'}`);
+      doc.text(`Goal: ${sprint.goal || 'No goal set'}`);
+      doc.moveDown();
+
+      doc.fontSize(16).text('User Stories:', { underline: true });
+      sprint.stories.forEach(s => {
+        doc.moveDown(0.5);
+        doc.fontSize(12).text(`${s.title} [${s.status}] - ${s.storyPoints || 0} pts`);
+        doc.fontSize(10).text(`   Assignee: ${s.assignee?.fullName || 'Unassigned'}`);
+      });
+
+      doc.end();
+      return;
+    }
+
+    // Default: JSON for web view
+    res.json(sprint);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Lỗi xuất báo cáo" });
   }
 });
 

@@ -75,6 +75,18 @@ model UserStory {
   sprint       Sprint? @relation(fields: [sprintId], references: [id])
   tasks        Task[]
   comments     Comment[]
+  updatedAt    DateTime?   @updatedAt
+  statusHistory UserStoryStatusHistory[]
+}
+
+model UserStoryStatusHistory {
+  id          String    @id @default(cuid())
+  storyId     String
+  userStory   UserStory @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  status      String
+  changedAt   DateTime  @default(now())
+
+  @@index([storyId])
 }
 
 model Task {
