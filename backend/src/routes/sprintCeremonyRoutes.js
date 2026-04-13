@@ -1,7 +1,6 @@
 // backend/src/routes/sprintCeremonyRoutes.js
 // US-023: Sprint Review  |  US-024: Sprint Retrospective
 // Lưu dữ liệu ceremony vào trường goal của Sprint dưới dạng JSON container
-// Không thay đổi schema Prisma, không migrate
 
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
@@ -83,11 +82,13 @@ router.put('/:sprintId/review', async (req, res) => {
       return res.status(404).json({ error: 'Không tìm thấy Sprint' });
     }
 
-    // 2. Kiểm tra quyền PO hoặc SM
-    const hasPermission = await checkPOorSM(userId, sprint.projectId);
-    if (!hasPermission) {
+    // 2. Kiểm tra quyền PO
+    const member = await prisma.projectMember.findUnique({
+      where: { userId_projectId: { userId, projectId: sprint.projectId } }
+    });
+    if (!member || member.role !== 'PO') {
       return res.status(403).json({
-        error: 'Chỉ Product Owner (PO) hoặc Scrum Master (SM) mới có quyền ghi Sprint Review!'
+        error: 'Chỉ Product Owner (PO) mới có quyền ghi Sprint Review!'
       });
     }
 
@@ -162,45 +163,55 @@ router.get('/:sprintId/review', async (req, res) => {
 // ============================================================
 
 /**
- * PUT /:sprintId/retrospective
- * Lưu hoặc cập nhật nội dung Sprint Retrospective
- * Quyền: Thành viên dự án (ACCEPTED) — cả nhóm đều tham gia retro
- * Body: { wentWell: string, needsImprovement: string, actionItems: string }
+ * POST /:sprintId/retrospective/items
+ * Thêm một ý kiến mới vào Sprint Retrospective
+ * Quyền: Thành viên dự án (ACCEPTED)
+ * Body: { type: 'WENT_WELL' | 'NEEDS_IMPROVEMENT' | 'ACTION_ITEM', text: string }
  */
-router.put('/:sprintId/retrospective', async (req, res) => {
+router.post('/:sprintId/retrospective/items', async (req, res) => {
   const { sprintId } = req.params;
-  const { wentWell, needsImprovement, actionItems } = req.body;
+  const { type, text } = req.body;
   const userId = req.user.userId;
 
   try {
-    // 1. Tìm Sprint
     const sprint = await prisma.sprint.findUnique({ where: { id: sprintId } });
     if (!sprint) {
       return res.status(404).json({ error: 'Không tìm thấy Sprint' });
     }
 
-    // 2. Kiểm tra quyền — retro cho mọi thành viên
     const isMember = await checkMember(userId, sprint.projectId);
     if (!isMember) {
       return res.status(403).json({ error: 'Bạn không phải thành viên của dự án này.' });
     }
 
-    // 3. Validate input
-    if (!wentWell && !needsImprovement && !actionItems) {
-      return res.status(400).json({
-        error: 'Vui lòng cung cấp ít nhất một trong các trường: wentWell, needsImprovement, actionItems.'
-      });
+    if (!type || !text) {
+      return res.status(400).json({ error: 'Vui lòng cung cấp loại ý kiến (type) và nội dung (text).' });
     }
 
-    // 4. Parse goal hiện tại → merge retrospective data → ghi lại
+    // Lấy thông tin user để lưu tên người tạo
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+
     const goalObj = parseGoalField(sprint.goal);
-    goalObj.retrospective = {
-      wentWell: wentWell || '',
-      needsImprovement: needsImprovement || '',
-      actionItems: actionItems || '',
-      updatedAt: new Date().toISOString(),
-      updatedBy: userId
+    
+    // Nếu retrospective chưa có hoặc data cũ (không phải mảng items), khởi tạo mới
+    if (!goalObj.retrospective || !Array.isArray(goalObj.retrospective.items)) {
+      goalObj.retrospective = {
+        items: [],
+        updatedAt: new Date().toISOString()
+      };
+    }
+
+    const newItem = {
+      id: Date.now().toString() + Math.random().toString(36).substring(2, 5), // generate short id
+      type,
+      text: text.trim(),
+      userId,
+      userName: user?.fullName || user?.email || 'Unknown',
+      createdAt: new Date().toISOString()
     };
+
+    goalObj.retrospective.items.unshift(newItem); // Thêm lên đầu danh sách
+    goalObj.retrospective.updatedAt = new Date().toISOString();
 
     const updated = await prisma.sprint.update({
       where: { id: sprintId },
@@ -208,13 +219,73 @@ router.put('/:sprintId/retrospective', async (req, res) => {
     });
 
     res.json({
-      message: 'Lưu Sprint Retrospective thành công!',
-      retrospective: goalObj.retrospective,
-      sprintId: updated.id
+      message: 'Thêm ý kiến thành công!',
+      item: newItem,
+      items: goalObj.retrospective.items
     });
   } catch (err) {
-    console.error('Lỗi lưu Sprint Retrospective:', err);
-    res.status(500).json({ error: 'Lỗi server khi lưu Sprint Retrospective: ' + err.message });
+    console.error('Lỗi thêm ý kiến Retrospective:', err);
+    res.status(500).json({ error: 'Lỗi server khi thêm ý kiến Retrospective: ' + err.message });
+  }
+});
+
+/**
+ * DELETE /:sprintId/retrospective/items/:itemId
+ * Xóa một ý kiến trong Retrospective
+ * Quyền: Người tạo ý kiến HOẶC (PO/SM của dự án)
+ */
+router.delete('/:sprintId/retrospective/items/:itemId', async (req, res) => {
+  const { sprintId, itemId } = req.params;
+  const userId = req.user.userId;
+
+  try {
+    const sprint = await prisma.sprint.findUnique({ where: { id: sprintId } });
+    if (!sprint) {
+      return res.status(404).json({ error: 'Không tìm thấy Sprint' });
+    }
+
+    const member = await prisma.projectMember.findUnique({
+      where: { userId_projectId: { userId, projectId: sprint.projectId } }
+    });
+
+    if (!member || member.status !== 'ACCEPTED') {
+      return res.status(403).json({ error: 'Bạn không có quyền truy cập.' });
+    }
+
+    const isManagement = member.role === 'PO' || member.role === 'SM';
+
+    const goalObj = parseGoalField(sprint.goal);
+    if (!goalObj.retrospective || !Array.isArray(goalObj.retrospective.items)) {
+      return res.status(404).json({ error: 'Retrospective chưa được khởi tạo.' });
+    }
+
+    const itemIndex = goalObj.retrospective.items.findIndex(i => i.id === itemId);
+    if (itemIndex === -1) {
+      return res.status(404).json({ error: 'Không tìm thấy ý kiến này.' });
+    }
+
+    const item = goalObj.retrospective.items[itemIndex];
+
+    // Kiểm tra quyền: Chủ nhân của item hoặc là Quản lý
+    if (item.userId !== userId && !isManagement) {
+      return res.status(403).json({ error: 'Bạn không có quyền xóa ý kiến của người khác.' });
+    }
+
+    goalObj.retrospective.items.splice(itemIndex, 1);
+    goalObj.retrospective.updatedAt = new Date().toISOString();
+
+    await prisma.sprint.update({
+      where: { id: sprintId },
+      data: { goal: serializeGoalField(goalObj) }
+    });
+
+    res.json({
+      message: 'Xóa ý kiến thành công!',
+      items: goalObj.retrospective.items
+    });
+  } catch (err) {
+    console.error('Lỗi xóa ý kiến Retrospective:', err);
+    res.status(500).json({ error: 'Lỗi server khi xóa ý kiến: ' + err.message });
   }
 });
 
@@ -240,11 +311,17 @@ router.get('/:sprintId/retrospective', async (req, res) => {
     }
 
     const goalObj = parseGoalField(sprint.goal);
+    let retroData = goalObj.retrospective;
+
+    // Đảm bảo trả về mảng nếu là dạng cũ
+    if (retroData && !Array.isArray(retroData.items)) {
+        retroData.items = [];
+    }
 
     res.json({
       sprintId: sprint.id,
       sprintName: sprint.name,
-      retrospective: goalObj.retrospective || null
+      retrospective: retroData || { items: [] }
     });
   } catch (err) {
     console.error('Lỗi lấy Sprint Retrospective:', err);
