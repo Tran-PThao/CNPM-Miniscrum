@@ -11,7 +11,6 @@ import CreateStoryModal from "../components/CreateStoryModal";
 export default function BoardPage() {
   const { projectId } = useParams();
   const [stories, setStories] = useState([]);
-  const [activeSprint, setActiveSprint] = useState(null);
   const [userRole, setUserRole] = useState("MEMBER");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingStory, setEditingStory] = useState(null);
@@ -40,20 +39,9 @@ export default function BoardPage() {
 
   const loadStories = async () => {
     try {
-      const [storiesRes, sprintsRes] = await Promise.all([
-        getStoriesByProject(projectId),
-        api.get(`/project/${projectId}/sprints`)
-      ]);
-      
-      const active = (Array.isArray(sprintsRes.data) ? sprintsRes.data : [])
-                      .find(s => s.status === 'ACTIVE');
-      setActiveSprint(active);
-
-      if (active) {
-        setStories(Array.isArray(storiesRes.data) ? storiesRes.data.filter(s => s.sprintId === active.id) : []);
-      } else {
-        setStories([]);
-      }
+      const res = await getStoriesByProject(projectId);
+      // Chỉ hiện các story KHÔNG phải BACKLOG (tức là đang trong Sprint: TODO, IN_PROGRESS, DONE)
+      setStories(Array.isArray(res.data) ? res.data.filter(s => s.status !== "BACKLOG") : []);
     } catch (err) {
       console.error("Lỗi khi tải bảng Kanban:", err);
     }
@@ -133,48 +121,15 @@ export default function BoardPage() {
       projectId={projectId}
     >
       <div className="h-full">
-        {activeSprint ? (
-          <>
-            <div className="mb-4 flex items-center gap-4 px-2 animate-in fade-in slide-in-from-top-2 duration-500">
-              <div className="px-3 py-1 bg-primary/10 border border-primary/20 rounded-lg">
-                <span className="text-xs font-black text-primary uppercase tracking-widest">Active Sprint:</span>
-                <span className="ml-2 text-sm font-bold text-on-surface">{activeSprint.name}</span>
-              </div>
-              {activeSprint.endDate && (
-                <div className="text-xs text-on-surface-variant font-medium flex items-center gap-1">
-                  <span className="material-symbols-outlined text-sm">calendar_month</span>
-                  Kết thúc ngày: {new Date(activeSprint.endDate).toLocaleDateString()}
-                </div>
-              )}
-            </div>
-            
-            <div className="flex-1 overflow-x-auto pb-6">
-              <div className="flex h-full gap-4 md:gap-8 min-w-[1200px] md:min-w-0 md:grid md:grid-cols-4">
-                <KanbanColumn title="To Do" status="TODO" items={todoCards} onUpdateItem={handleStatusUpdate} onAssign={handleAssign} onEdit={handleEditStory} onDelete={handleDeleteStory} userRole={userRole} />
-                <KanbanColumn title="In Progress" status="IN_PROGRESS" items={inProgressCards} onUpdateItem={handleStatusUpdate} onAssign={handleAssign} onEdit={handleEditStory} onDelete={handleDeleteStory} userRole={userRole} />
-                <KanbanColumn title="Done" status="DONE" items={doneCards} onUpdateItem={handleStatusUpdate} onAssign={handleAssign} onEdit={handleEditStory} onDelete={handleDeleteStory} userRole={userRole} />
-                <KanbanColumn title="Rejected" status="REJECTED" items={rejectedCards} onUpdateItem={handleStatusUpdate} onAssign={handleAssign} onEdit={handleEditStory} onDelete={handleDeleteStory} userRole={userRole} />
-              </div>
-            </div>
-          </>
-        ) : (
-          <div className="flex flex-col items-center justify-center h-[60vh] text-center animate-in fade-in zoom-in-95 duration-500">
-            <div className="w-24 h-24 bg-surface-container rounded-[2rem] flex items-center justify-center text-on-surface-variant/20 mb-6 border-2 border-dashed border-outline-variant/30">
-              <span className="material-symbols-outlined text-5xl">view_kanban</span>
-            </div>
-            <h2 className="text-2xl font-black text-on-surface mb-2 tracking-tight">Chưa có Sprint nào đang hoạt động</h2>
-            <p className="text-on-surface-variant max-w-md mx-auto mb-8 font-medium">
-              Vào mục <span className="text-primary font-bold">Backlog</span> để lập kế hoạch và bắt đầu một Sprint mới để kích hoạt bảng Kanban.
-            </p>
-            <button 
-              onClick={() => navigate(`/projects/${projectId}/backlog`)}
-              className="px-8 py-3 bg-primary text-on-primary rounded-2xl font-black shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
-            >
-              <span className="material-symbols-outlined">inventory_2</span>
-              Đi tới Backlog
-            </button>
+        {/* Kanban board */}
+        <div className="flex-1 overflow-x-auto pb-6">
+          <div className="flex h-full gap-4 md:gap-8 min-w-[1200px] md:min-w-0 md:grid md:grid-cols-4">
+            <KanbanColumn title="To Do" status="TODO" items={todoCards} onUpdateItem={handleStatusUpdate} onAssign={handleAssign} onEdit={handleEditStory} onDelete={handleDeleteStory} userRole={userRole} />
+            <KanbanColumn title="In Progress" status="IN_PROGRESS" items={inProgressCards} onUpdateItem={handleStatusUpdate} onAssign={handleAssign} onEdit={handleEditStory} onDelete={handleDeleteStory} userRole={userRole} />
+            <KanbanColumn title="Done" status="DONE" items={doneCards} onUpdateItem={handleStatusUpdate} onAssign={handleAssign} onEdit={handleEditStory} onDelete={handleDeleteStory} userRole={userRole} />
+            <KanbanColumn title="Rejected" status="REJECTED" items={rejectedCards} onUpdateItem={handleStatusUpdate} onAssign={handleAssign} onEdit={handleEditStory} onDelete={handleDeleteStory} userRole={userRole} />
           </div>
-        )}
+        </div>
       </div>
 
       <CreateStoryModal 

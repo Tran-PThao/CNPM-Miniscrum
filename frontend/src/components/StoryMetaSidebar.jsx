@@ -2,30 +2,32 @@ const assigneeAvatar =
   "https://lh3.googleusercontent.com/aida-public/AB6AXuDjHo69J_OA-i4NLRQcnbxQ1Tt2uQA7NLf6c1GIDHZV5FAwCs-peO9QJkwFsI4oIDHZ6rtJY2pDcu8TSSadQiyesjhJOaQzGR_Sq8Dzz2_Qe4QR0-HzYVf24AcP0Fr1yth7YMbq4Z-AIUCCw10qmVccC4F_UIo1W1RHBK7a3eSSu2EEI_LAoa4OcipygTmJ0tu94Aw7s2W3VNuWUUDQgHJFatMBTH7ZN7xldHEeZkMIVRL3zsmIvcB6FhNVBqNW75fsL9pcevaDfo8";
 
 export default function StoryMetaSidebar({
-  status = "In Progress",
+  status = "TODO",
   assignee = "Alex",
   storyPoints = 8,
   priority = "High",
   created = "Feb 14, 2024 · 09:12 AM",
   updated = "10 mins ago",
   sprintProgress = 65,
+  onStatusChange, // Mới thêm
 }) {
   return (
     <div className="w-full md:w-80 bg-surface-container-low/50 p-8 flex flex-col gap-8 border-l border-outline-variant/15 shrink-0">
       {/* Status */}
       <div className="space-y-3">
         <label className="text-[10px] font-bold uppercase tracking-widest text-outline block">
-          Status
+          Trạng thái
         </label>
         <div className="relative">
           <select
-            defaultValue={status}
+            value={status} // Chuyển sang controlled component
+            onChange={(e) => onStatusChange && onStatusChange(e.target.value)}
             className="w-full appearance-none bg-surface-container-lowest border-none rounded-xl py-3 pl-4 pr-10 text-sm font-semibold text-primary shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
           >
-            <option>To Do</option>
-            <option>In Progress</option>
-            <option>In Review</option>
-            <option>Done</option>
+            <option value="TODO">To Do</option>
+            <option value="IN_PROGRESS">In Progress</option>
+            <option value="DONE">Done</option>
+            <option value="REJECTED">Rejected</option>
           </select>
           <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-outline pointer-events-none">
             expand_more
