@@ -82,31 +82,54 @@ router.put('/:sprintId/review', async (req, res) => {
       return res.status(404).json({ error: 'Không tìm thấy Sprint' });
     }
 
-    // 2. Kiểm tra quyền PO
+    // 2. Kiểm tra quyền: Phải là thành viên dự án
     const member = await prisma.projectMember.findUnique({
       where: { userId_projectId: { userId, projectId: sprint.projectId } }
     });
-    if (!member || member.role !== 'PO') {
+    
+    if (!member || member.status !== 'ACCEPTED') {
       return res.status(403).json({
-        error: 'Chỉ Product Owner (PO) mới có quyền ghi Sprint Review!'
+        error: 'Bạn không có quyền cập nhật Sprint Review của dự án này.'
       });
     }
 
-    // 3. Validate input
-    if (!demoContent && !feedback) {
+    const isPOorSM = member.role === 'PO' || member.role === 'SM';
+
+    // 3. Validate input (ít nhất một trường phải có mặt nếu muốn xóa trắng thì send empty string)
+    if (demoContent === undefined && feedback === undefined) {
       return res.status(400).json({
-        error: 'Vui lòng cung cấp ít nhất nội dung demo (demoContent) hoặc phản hồi (feedback).'
+        error: 'Vui lòng cung cấp demoContent hoặc feedback để cập nhật.'
       });
     }
 
     // 4. Parse goal hiện tại → merge review data → ghi lại
     const goalObj = parseGoalField(sprint.goal);
-    goalObj.review = {
-      demoContent: demoContent || '',
-      feedback: feedback || '',
+    const existingReview = goalObj.review || { demoContent: '', feedback: '' };
+
+    // Logic phân quyền theo trường:
+    // - demoContent: Ai cũng sửa được (MEMBER, SM, PO)
+    // - feedback: Chỉ PO/SM sửa được
+    let newReview = {
+      ...existingReview,
       updatedAt: new Date().toISOString(),
       updatedBy: userId
     };
+
+    if (demoContent !== undefined) {
+      newReview.demoContent = demoContent;
+    }
+
+    if (feedback !== undefined) {
+      if (isPOorSM) {
+        newReview.feedback = feedback;
+      } else {
+        // Nếu là Member gửi feedback lên, chúng ta bỏ qua/giữ nguyên feedback cũ
+        // để tránh Member ghi đè feedback của PO/SM
+        newReview.feedback = existingReview.feedback;
+      }
+    }
+
+    goalObj.review = newReview;
 
     const updated = await prisma.sprint.update({
       where: { id: sprintId },
@@ -121,6 +144,128 @@ router.put('/:sprintId/review', async (req, res) => {
   } catch (err) {
     console.error('Lỗi lưu Sprint Review:', err);
     res.status(500).json({ error: 'Lỗi server khi lưu Sprint Review: ' + err.message });
+  }
+});
+
+/**
+ * POST /:sprintId/review/items
+ * Thêm một ý kiến phản hồi mới vào Sprint Review
+ * Quyền: Thành viên dự án (ACCEPTED)
+ * Body: { text: string }
+ */
+router.post('/:sprintId/review/items', async (req, res) => {
+  const { sprintId } = req.params;
+  const { text } = req.body;
+  const userId = req.user.userId;
+
+  try {
+    const sprint = await prisma.sprint.findUnique({ where: { id: sprintId } });
+    if (!sprint) {
+      return res.status(404).json({ error: 'Không tìm thấy Sprint' });
+    }
+
+    const isMember = await checkMember(userId, sprint.projectId);
+    if (!isMember) {
+      return res.status(403).json({ error: 'Bạn không phải thành viên của dự án này.' });
+    }
+
+    if (!text) {
+      return res.status(400).json({ error: 'Vui lòng cung cấp nội dung phản hồi (text).' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const goalObj = parseGoalField(sprint.goal);
+    
+    if (!goalObj.review) {
+      goalObj.review = { demoContent: '', feedback: '', items: [] };
+    }
+    if (!Array.isArray(goalObj.review.items)) {
+      goalObj.review.items = [];
+    }
+
+    const newItem = {
+      id: 'rev_' + Date.now().toString() + Math.random().toString(36).substring(2, 5),
+      text: text.trim(),
+      userId,
+      userName: user?.fullName || user?.email || 'Unknown',
+      createdAt: new Date().toISOString()
+    };
+
+    goalObj.review.items.unshift(newItem);
+    goalObj.review.updatedAt = new Date().toISOString();
+
+    await prisma.sprint.update({
+      where: { id: sprintId },
+      data: { goal: serializeGoalField(goalObj) }
+    });
+
+    res.json({
+      message: 'Thêm phản hồi thành công!',
+      item: newItem,
+      items: goalObj.review.items
+    });
+  } catch (err) {
+    console.error('Lỗi thêm phản hồi Review:', err);
+    res.status(500).json({ error: 'Lỗi server khi thêm phản hồi: ' + err.message });
+  }
+});
+
+/**
+ * DELETE /:sprintId/review/items/:itemId
+ * Xóa một phản hồi trong Sprint Review
+ * Quyền: Người tạo phản hồi HOẶC (PO/SM của dự án)
+ */
+router.delete('/:sprintId/review/items/:itemId', async (req, res) => {
+  const { sprintId, itemId } = req.params;
+  const userId = req.user.userId;
+
+  try {
+    const sprint = await prisma.sprint.findUnique({ where: { id: sprintId } });
+    if (!sprint) {
+      return res.status(404).json({ error: 'Không tìm thấy Sprint' });
+    }
+
+    const member = await prisma.projectMember.findUnique({
+      where: { userId_projectId: { userId, projectId: sprint.projectId } }
+    });
+
+    if (!member || member.status !== 'ACCEPTED') {
+      return res.status(403).json({ error: 'Bạn không có quyền truy cập.' });
+    }
+
+    const isManagement = member.role === 'PO' || member.role === 'SM';
+
+    const goalObj = parseGoalField(sprint.goal);
+    if (!goalObj.review || !Array.isArray(goalObj.review.items)) {
+      return res.status(404).json({ error: 'Review chưa được khởi tạo.' });
+    }
+
+    const itemIndex = goalObj.review.items.findIndex(i => i.id === itemId);
+    if (itemIndex === -1) {
+      return res.status(404).json({ error: 'Không tìm thấy phản hồi này.' });
+    }
+
+    const item = goalObj.review.items[itemIndex];
+
+    if (item.userId !== userId && !isManagement) {
+      return res.status(403).json({ error: 'Bạn không có quyền xóa phản hồi của người khác.' });
+    }
+
+    goalObj.review.items.splice(itemIndex, 1);
+    goalObj.review.updatedAt = new Date().toISOString();
+
+    await prisma.sprint.update({
+      where: { id: sprintId },
+      data: { goal: serializeGoalField(goalObj) }
+    });
+
+    res.json({
+      message: 'Xóa phản hồi thành công!',
+      items: goalObj.review.items
+    });
+  } catch (err) {
+    console.error('Lỗi xóa phản hồi Review:', err);
+    res.status(500).json({ error: 'Lỗi server khi xóa phản hồi: ' + err.message });
   }
 });
 
@@ -146,11 +291,13 @@ router.get('/:sprintId/review', async (req, res) => {
     }
 
     const goalObj = parseGoalField(sprint.goal);
+    const reviewData = goalObj.review || { demoContent: '', feedback: '', items: [] };
+    if (!Array.isArray(reviewData.items)) reviewData.items = [];
 
     res.json({
       sprintId: sprint.id,
       sprintName: sprint.name,
-      review: goalObj.review || null
+      review: reviewData
     });
   } catch (err) {
     console.error('Lỗi lấy Sprint Review:', err);
