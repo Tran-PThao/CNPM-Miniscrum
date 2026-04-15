@@ -597,9 +597,57 @@ app.patch("/api/sprint/:id", authMiddleware, async (req, res) => {
     const sprint = await prisma.sprint.findUnique({ where: { id } });
     if (!sprint) return res.status(404).json({ error: "Không tìm thấy Sprint" });
 
-    const hasPermission = await checkPOorSM(req.user.userId, sprint.projectId);
-    if (!hasPermission) {
-      return res.status(403).json({ error: "Chỉ Scrum Master hoặc PO mới được cập nhật Sprint." });
+    // Lấy thông tin role của người dùng trong dự án
+    const member = await prisma.projectMember.findUnique({
+      where: { userId_projectId: { userId: req.user.userId, projectId: sprint.projectId } },
+    });
+
+    if (!member || (member.role !== "PO" && member.role !== "SM")) {
+      return res.status(403).json({ error: "Bạn không có quyền cập nhật Sprint." });
+    }
+
+    // == US-049: Kiểm tra xung đột và quyền hạn khi Bắt đầu Sprint (Start Sprint) ==
+    if (status === 'ACTIVE' && sprint.status !== 'ACTIVE') {
+      if (member.role !== "SM" && member.role !== "PO") {
+        return res.status(403).json({ error: "Chỉ Scrum Master hoặc Product Owner (Chủ dự án) mới có quyền bắt đầu Sprint!" });
+      }
+
+      // BẮT BUỘC PHẢI CÓ END DATE KHI BẮT ĐẦU SPRINT
+      if (!endDate && !sprint.endDate) {
+        return res.status(400).json({ error: "Vui lòng thiết lập ngày kết thúc cho Sprint trước khi bắt đầu!" });
+      }
+
+      const activeSprint = await prisma.sprint.findFirst({
+        where: { projectId: sprint.projectId, status: 'ACTIVE' }
+      });
+      if (activeSprint) {
+        return res.status(400).json({ error: `Dự án hiện đã có một Sprint đang hoạt động (${activeSprint.name}). Vui lòng kết thúc nó trước khi bắt đầu Sprint mới.` });
+      }
+    }
+
+    // == US-050: Logic kết thúc Sprint (Complete Sprint) ==
+    if (status === 'COMPLETED' && sprint.status === 'ACTIVE') {
+      if (member.role !== "SM" && member.role !== "PO") {
+        return res.status(403).json({ error: "Chỉ Scrum Master hoặc Product Owner (Chủ dự án) mới có quyền kết thúc Sprint!" });
+      }
+
+      const { moveUnfinishedTo } = req.body;
+      if (moveUnfinishedTo) {
+        // Tìm các story chưa hoàn thành (không phải DONE và không phải REJECTED)
+        const unfinishedStories = await prisma.userStory.findMany({
+          where: { sprintId: id, NOT: [{ status: 'DONE' }, { status: 'REJECTED' }] }
+        });
+
+        if (unfinishedStories.length > 0) {
+          const targetSprintId = moveUnfinishedTo === 'BACKLOG' ? null : moveUnfinishedTo;
+          const targetStatus = moveUnfinishedTo === 'BACKLOG' ? 'BACKLOG' : 'TODO';
+
+          await prisma.userStory.updateMany({
+            where: { id: { in: unfinishedStories.map(s => s.id) } },
+            data: { sprintId: targetSprintId, status: targetStatus }
+          });
+        }
+      }
     }
 
     const updated = await prisma.sprint.update({
@@ -665,15 +713,29 @@ app.get("/api/project/:projectId/dashboard", async (req, res) => {
 
 // 1. BURNDOWN CHART DATA
 app.get("/api/analytics/:projectId/sprint/:sprintId/burndown", authMiddleware, async (req, res) => {
-  const { sprintId } = req.params;
+  const { projectId, sprintId } = req.params;
+  const requesterId = req.user.userId;
+
   try {
+    // KIỂM TRA QUYỀN (CHỈ PO/SM)
+    const member = await prisma.projectMember.findUnique({
+      where: { userId_projectId: { userId: requesterId, projectId } }
+    });
+    if (!member || (member.role !== 'PO' && member.role !== 'SM')) {
+      return res.status(403).json({ error: "Chỉ PO hoặc SM mới có quyền xem dữ liệu Burndown." });
+    }
     const sprint = await prisma.sprint.findUnique({
       where: { id: sprintId },
       include: { stories: { include: { statusHistory: true } } }
     });
 
     if (!sprint || !sprint.startDate || !sprint.endDate) {
-      return res.status(400).json({ error: "Sprint chưa có ngày bắt đầu/kết thúc hoặc không tồn tại." });
+      // Thay vì 400, trả về mảng rỗng và info để frontend hiển thị thông báo nhẹ nhàng hơn nếu cần
+      return res.json({ 
+        error: "Sprint chưa có ngày bắt đầu/kết thúc.",
+        data: [],
+        details: "Vui lòng thiết lập ngày tháng cho Sprint để xem biểu đồ Burndown."
+      });
     }
 
     const start = new Date(sprint.startDate);
@@ -725,8 +787,18 @@ app.get("/api/analytics/:projectId/sprint/:sprintId/burndown", authMiddleware, a
 
 app.get("/api/analytics/:projectId/velocity", authMiddleware, async (req, res) => {
   const { projectId } = req.params;
-  console.log(`[Analytics] Fetching Velocity for project: ${projectId}`);
+  const requesterId = req.user.userId;
+
   try {
+    // KIỂM TRA QUYỀN (CHỈ PO/SM)
+    const member = await prisma.projectMember.findUnique({
+      where: { userId_projectId: { userId: requesterId, projectId } }
+    });
+    if (!member || (member.role !== 'PO' && member.role !== 'SM')) {
+      return res.status(403).json({ error: "Chỉ PO hoặc SM mới có quyền xem dữ liệu Velocity." });
+    }
+
+    console.log(`[Analytics] Fetching Velocity for project: ${projectId}`);
     const sprints = await prisma.sprint.findMany({
       where: { projectId, status: 'COMPLETED' },
       include: { stories: true },
@@ -757,10 +829,18 @@ app.get("/api/analytics/:projectId/velocity", authMiddleware, async (req, res) =
 
 // 3. SPRINT REPORT EXPORT (US-027)
 app.get("/api/analytics/:projectId/sprint/:sprintId/report", authMiddleware, async (req, res) => {
-  const { sprintId } = req.params;
+  const { projectId, sprintId } = req.params;
   const { format } = req.query; // 'pdf' or 'excel'
+  const requesterId = req.user.userId;
 
   try {
+    // KIỂM TRA QUYỀN (CHỈ PO/SM)
+    const member = await prisma.projectMember.findUnique({
+      where: { userId_projectId: { userId: requesterId, projectId } }
+    });
+    if (!member || (member.role !== 'PO' && member.role !== 'SM')) {
+      return res.status(403).json({ error: "Chỉ PO hoặc SM mới có quyền xuất báo cáo Sprint." });
+    }
     const sprint = await prisma.sprint.findUnique({
       where: { id: sprintId },
       include: { 
@@ -776,31 +856,39 @@ app.get("/api/analytics/:projectId/sprint/:sprintId/report", authMiddleware, asy
 
     if (!sprint) return res.status(404).json({ error: "Sprint không tồn tại" });
 
+    // Hỗ trợ tiếng Việt trong filename bằng cách encode
+    const safeSprintName = encodeURIComponent(sprint.name).replace(/['()]/g, escape).replace(/\*/g, '%2A');
+
     if (format === 'excel') {
       const ExcelJS = require('exceljs');
       const workbook = new ExcelJS.Workbook();
       const sheet = workbook.addWorksheet('Sprint Report');
 
       sheet.columns = [
-        { header: 'Title', key: 'title', width: 30 },
-        { header: 'Points', key: 'points', width: 10 },
-        { header: 'Status', key: 'status', width: 15 },
-        { header: 'Assignee', key: 'assignee', width: 20 },
-        { header: 'Tasks Count', key: 'tasks', width: 15 },
+        { header: 'Tiêu đề (Title)', key: 'title', width: 40 },
+        { header: 'Điểm (Points)', key: 'points', width: 15 },
+        { header: 'Trạng thái', key: 'status', width: 20 },
+        { header: 'Người thực hiện', key: 'assignee', width: 25 },
+        { header: 'Số Task', key: 'tasks', width: 15 },
       ];
 
-      sprint.stories.forEach(s => {
-        sheet.addRow({
-          title: s.title,
-          points: s.storyPoints || 0,
-          status: s.status,
-          assignee: s.assignee?.fullName || 'Unassigned',
-          tasks: s.tasks.length
+      if (sprint.stories && sprint.stories.length > 0) {
+        sprint.stories.forEach(s => {
+          sheet.addRow({
+            title: s.title,
+            points: s.storyPoints || 0,
+            status: s.status,
+            assignee: s.assignee?.fullName || 'Chưa gán',
+            tasks: s.tasks ? s.tasks.length : 0
+          });
         });
-      });
+      } else {
+        sheet.addRow({ title: '(Sprint không có User Story nào)' });
+      }
 
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition', `attachment; filename=Sprint_Report_${sprint.name}.xlsx`);
+      // Cách thức header chuẩn cho Unicode filename
+      res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''Sprint_Report_${safeSprintName}.xlsx`);
       await workbook.xlsx.write(res);
       res.end();
       return;
@@ -808,31 +896,48 @@ app.get("/api/analytics/:projectId/sprint/:sprintId/report", authMiddleware, asy
 
     if (format === 'pdf') {
       const PDFDocument = require('pdfkit');
-      const doc = new PDFDocument();
+      const doc = new PDFDocument({ margin: 50 });
       
       res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename=Sprint_Report_${sprint.name}.pdf`);
+      res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''Sprint_Report_${safeSprintName}.pdf`);
       doc.pipe(res);
 
-      doc.fontSize(20).text(`Sprint Report: ${sprint.name}`, { align: 'center' });
+      // SỬ DỤNG FONT HỆ THỐNG ĐỂ HỖ TRỢ TIẾNG VIỆT
+      const fontPath = 'C:\\Windows\\Fonts\\arial.ttf';
+      try {
+        doc.font(fontPath);
+      } catch (fErr) {
+        console.warn("Font Arial not found, falling back to default (Vietnamese might break)");
+      }
+
+      doc.fontSize(24).fillColor('#0052CC').text(`Báo cáo Sprint: ${sprint.name}`, { align: 'center' });
       doc.moveDown();
-      doc.fontSize(14).text(`Project: ${sprint.project.name}`);
-      doc.text(`Duration: ${sprint.startDate?.toLocaleDateString() || 'N/A'} - ${sprint.endDate?.toLocaleDateString() || 'N/A'}`);
-      doc.text(`Goal: ${sprint.goal || 'No goal set'}`);
+      
+      doc.fontSize(12).fillColor('#172B4D').text(`Dự án: ${sprint.project.name}`);
+      doc.text(`Thời gian: ${sprint.startDate ? new Date(sprint.startDate).toLocaleDateString('vi-VN') : 'N/A'} - ${sprint.endDate ? new Date(sprint.endDate).toLocaleDateString('vi-VN') : 'N/A'}`);
+      doc.text(`Mục tiêu: ${sprint.goal || 'Không có mục tiêu cụ thể'}`);
+      doc.moveDown(2);
+
+      doc.fontSize(18).fillColor('#0052CC').text('Danh sách User Stories', { underline: true });
       doc.moveDown();
 
-      doc.fontSize(16).text('User Stories:', { underline: true });
-      sprint.stories.forEach(s => {
-        doc.moveDown(0.5);
-        doc.fontSize(12).text(`${s.title} [${s.status}] - ${s.storyPoints || 0} pts`);
-        doc.fontSize(10).text(`   Assignee: ${s.assignee?.fullName || 'Unassigned'}`);
-      });
+      if (sprint.stories && sprint.stories.length > 0) {
+        sprint.stories.forEach((s, index) => {
+          doc.fontSize(14).fillColor('#172B4D').text(`${index + 1}. ${s.title}`);
+          doc.fontSize(11).fillColor('#6B778C')
+             .text(`   Trạng thái: ${s.status} | Điểm: ${s.storyPoints || 0}`)
+             .text(`   Người thực hiện: ${s.assignee?.fullName || 'Chưa gán'}`);
+          doc.moveDown(0.5);
+        });
+      } else {
+        doc.fontSize(12).text('Sprint này chưa có User Story nào.');
+      }
 
       doc.end();
       return;
     }
 
-    // Default: JSON for web view
+    // Default: JSON
     res.json(sprint);
 
   } catch (err) {
