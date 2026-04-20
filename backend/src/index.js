@@ -1,5 +1,6 @@
-//backend/src/index.js
 const express = require("express");
+const http = require("http");
+const { initSocket } = require("./socket");
 const cors = require("cors");
 const dotenv = require("dotenv");
 const { PrismaClient } = require("@prisma/client");
@@ -1295,7 +1296,10 @@ app.patch("/api/notifications/:id/read", authMiddleware, async (req, res) => {
 });
 // Lắng nghe cổng
 const PORT = process.env.PORT || 5001;
-app.listen(PORT, '0.0.0.0', () => {
+const server = http.createServer(app);
+initSocket(server, prisma);
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Server chạy tại http://localhost:${PORT}`);
   console.log(`✅ Server mạng tại http://0.0.0.0:${PORT}`);
+  console.log(`🔌 Socket.io đã sẵn sàng`);
 });

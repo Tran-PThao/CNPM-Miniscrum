@@ -1,7 +1,7 @@
 //frontend/src/pages/Backlog.jsx
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-
+import useSocket from "../hooks/useSocket";
 // === Thêm thư viện Drag & Drop ===
 import { 
   DndContext, 
@@ -125,6 +125,8 @@ export default function Backlog() {
       console.error("Lỗi khi tải dữ liệu:", err);
     }
   };
+
+  useSocket(projectId, loadData);
 
   // === Lọc stories cho Product Backlog ===
   // Stories trong backlog là những cái không có sprintId (chưa được gán vào Sprint nào)
@@ -307,6 +309,7 @@ export default function Backlog() {
             backlogOrder: index,
           }));
           await reorderStories(updates);
+          await loadData();
         } catch (err) {
           console.error("Lỗi khi lưu thứ tự:", err);
           await loadData();

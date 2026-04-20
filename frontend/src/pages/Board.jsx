@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import useSocket from "../hooks/useSocket";
 import MainLayout from "../components/MainLayout";
 import BoardTopBar from "../components/BoardTopBar";
 import KanbanColumn from "../components/KanbanColumn";
@@ -104,6 +105,8 @@ export default function BoardPage() {
       console.error("Lỗi khi tải bảng Kanban:", err);
     }
   };
+
+  useSocket(projectId, loadStories);
 
   const handleStatusUpdate = async (storyId, newStatus) => {
     try {
