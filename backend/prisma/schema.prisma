@@ -19,6 +19,7 @@ model User {
   assignedTasks   Task[]          @relation("AssignedTasks")
   standups        DailyStandup[]
   comments        Comment[]
+  notifications   Notification[]
 }
 
 model Project {
@@ -125,4 +126,14 @@ model Comment {
   userStory   UserStory @relation(fields: [userStoryId], references: [id], onDelete: Cascade)
   userId      String
   user        User      @relation(fields: [userId], references: [id])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  content   String
+  type      String   @default("SYSTEM") // SYSTEM, PROJECT_INVITE, etc.
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
 }

@@ -1007,7 +1007,7 @@ app.patch("/api/project/:projectId/members/:userId/role", authMiddleware, async 
   }
 });
 
-// US-042: KICK THÀNH VIÊN KHỎI DỰ ÁN (Chỉ PO)
+// US-042: XÓA THÀNH VIÊN KHỎI DỰ ÁN (Chỉ PO)
 app.delete("/api/project/:projectId/members/:userId", authMiddleware, async (req, res) => {
   const { projectId, userId } = req.params;
   const requesterId = req.user.userId;
@@ -1018,12 +1018,18 @@ app.delete("/api/project/:projectId/members/:userId", authMiddleware, async (req
     });
 
     if (!requester || requester.role !== "PO") {
-      return res.status(403).json({ error: "Chỉ Product Owner (PO) mới có quyền kick thành viên!" });
+      return res.status(403).json({ error: "Chỉ Product Owner (PO) mới có quyền xóa thành viên!" });
     }
 
     if (requesterId === userId) {
-      return res.status(400).json({ error: "Bạn không thể tự kick chính mình khỏi dự án!" });
+      return res.status(400).json({ error: "Bạn không thể tự xóa chính mình khỏi dự án!" });
     }
+
+    // Lấy thông tin dự án để đưa vào thông báo
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: { name: true }
+    });
 
     // Xóa record member
     await prisma.projectMember.delete({
@@ -1036,9 +1042,31 @@ app.delete("/api/project/:projectId/members/:userId", authMiddleware, async (req
       data: { assigneeId: null }
     });
 
-    res.json({ message: "Đã xóa thành viên khỏi dự án." });
+    // Unassign all tasks assigned to this user in this project
+    // Tìm các story trong project để unassign task thuộc các story đó
+    const projectStories = await prisma.userStory.findMany({
+      where: { projectId },
+      select: { id: true }
+    });
+    const storyIds = projectStories.map(s => s.id);
+
+    await prisma.task.updateMany({
+      where: { storyId: { in: storyIds }, assigneeId: userId },
+      data: { assigneeId: null }
+    });
+
+    // Tạo thông báo cho người bị xóa
+    await prisma.notification.create({
+      data: {
+        userId,
+        content: `Bạn đã bị xóa khỏi dự án vì không còn tham gia`,
+        type: "KICKED"
+      }
+    });
+
+    res.json({ message: "Đã xóa thành viên khỏi dự án và gửi thông báo." });
   } catch (err) {
-    res.status(500).json({ error: "Lỗi khi kick thành viên: " + err.message });
+    res.status(500).json({ error: "Lỗi khi xóa thành viên: " + err.message });
   }
 });
 
@@ -1185,6 +1213,34 @@ app.post("/api/tasks/:taskId/comments", authMiddleware, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Lỗi khi lưu bình luận cho Task" });
+  }
+});
+// === NOTIFICATION API ===
+
+// Lấy danh sách thông báo
+app.get("/api/notifications", authMiddleware, async (req, res) => {
+  try {
+    const notifications = await prisma.notification.findMany({
+      where: { userId: req.user.userId },
+      orderBy: { createdAt: "desc" },
+      take: 20
+    });
+    res.json(notifications);
+  } catch (err) {
+    res.status(500).json({ error: "Lỗi lấy thông báo" });
+  }
+});
+
+// Đánh dấu đã đọc
+app.patch("/api/notifications/:id/read", authMiddleware, async (req, res) => {
+  try {
+    await prisma.notification.update({
+      where: { id: req.params.id, userId: req.user.userId },
+      data: { isRead: true }
+    });
+    res.json({ message: "Đã đánh dấu đã đọc" });
+  } catch (err) {
+    res.status(500).json({ error: "Lỗi cập nhật thông báo" });
   }
 });
 // Lắng nghe cổng

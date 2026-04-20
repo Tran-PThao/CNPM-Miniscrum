@@ -56,4 +56,14 @@ export const respondToInvitation = (id, action) => api.post(`/invitations/${id}/
 // MEMBERS
 export const getProjectMembers = (projectId) => api.get(`/project/${projectId}/members`);
 
+// SPRINT CEREMONIES (US-023 & US-024)
+export const getSprintCeremonies = (sprintId) => api.get(`/sprints/${sprintId}/ceremonies`);
+export const getSprintReview = (sprintId) => api.get(`/sprints/${sprintId}/review`);
+export const saveSprintReview = (sprintId, data) => api.put(`/sprints/${sprintId}/review`, data);
+export const getSprintRetrospective = (sprintId) => api.get(`/sprints/${sprintId}/retrospective`);
+export const saveSprintRetrospective = (sprintId, data) => api.put(`/sprints/${sprintId}/retrospective`, data);
+
+// NOTIFICATIONS
+export const getNotifications = () => api.get('/notifications');
+export const markNotificationAsRead = (id) => api.patch(`/notifications/${id}/read`);
 export default api;
