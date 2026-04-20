@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import api from '../services/api';
+import api, { deleteProject } from '../services/api';
 
 const ROLES = ['PO', 'SM', 'MEMBER'];
 const ROLE_STYLE = {
@@ -103,6 +103,23 @@ export default function ManageMembers() {
       setUpdatingId(null);
     }
   };
+
+  const handleDeleteProject = async () => {
+    const confirm1 = window.confirm("CẢNH BÁO: Hành động này sẽ xóa vĩnh viễn dự án và toàn bộ dữ liệu liên quan. Bạn có chắc chắn muốn tiếp tục?");
+    if (!confirm1) return;
+
+    const confirm2 = window.confirm("Xác nhận lần cuối: Bạn thực sự muốn XÓA VĨNH VIỄN dự án này?");
+    if (!confirm2) return;
+
+    try {
+      await deleteProject(projectId);
+      alert("Dự án đã được xóa thành công.");
+      navigate("/dashboard");
+    } catch (err) {
+      setError(err.response?.data?.error || 'Lỗi khi xóa dự án.');
+    }
+  };
+
 
   const currentMember = members.find(m => m.userId === currentUser.id);
   const isPO = currentMember?.role === 'PO';
@@ -281,6 +298,30 @@ export default function ManageMembers() {
             )}
           </div>
         </div>
+
+        {/* Danger Zone - Only for PO */}
+        {isPO && (
+          <div className="mt-12 bg-white rounded-[2.5rem] p-8 shadow-2xl shadow-error/5 border border-error/10 animate-in fade-in slide-in-from-bottom-8 duration-700">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div>
+                <h3 className="text-xl font-black text-error mb-2 flex items-center gap-2">
+                  <span className="material-symbols-outlined">warning</span>
+                  Danger Zone
+                </h3>
+                <p className="text-sm text-on-surface-variant font-medium">
+                  Xóa vĩnh viễn dự án này và toàn bộ dữ liệu liên quan. Hành động này không thể hoàn tác.
+                </p>
+              </div>
+              <button
+                onClick={handleDeleteProject}
+                className="px-8 py-4 bg-error/10 text-error rounded-2xl font-black text-sm border border-error/20 hover:bg-error hover:text-white transition-all flex items-center justify-center gap-3 shadow-lg shadow-error/10"
+              >
+                <span className="material-symbols-outlined">delete_forever</span>
+                XÓA DỰ ÁN
+              </button>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

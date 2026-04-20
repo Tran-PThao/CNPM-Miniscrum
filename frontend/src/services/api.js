@@ -55,6 +55,7 @@ export const respondToInvitation = (id, action) => api.post(`/invitations/${id}/
 
 // MEMBERS
 export const getProjectMembers = (projectId) => api.get(`/project/${projectId}/members`);
+export const deleteProject = (projectId) => api.delete(`/project/${projectId}`);
 
 // SPRINT CEREMONIES (US-023 & US-024)
 export const getSprintCeremonies = (sprintId) => api.get(`/sprints/${sprintId}/ceremonies`);

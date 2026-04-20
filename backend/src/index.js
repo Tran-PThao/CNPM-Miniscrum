@@ -1070,6 +1070,56 @@ app.delete("/api/project/:projectId/members/:userId", authMiddleware, async (req
   }
 });
 
+// XÓA DỰ ÁN (Chỉ PO)
+app.delete("/api/project/:projectId", authMiddleware, async (req, res) => {
+  const { projectId } = req.params;
+  const userId = req.user.userId;
+
+  try {
+    // 1. Kiểm tra quyền PO
+    const member = await prisma.projectMember.findUnique({
+      where: { userId_projectId: { userId, projectId } },
+    });
+
+    if (!member || member.role !== "PO") {
+      return res.status(403).json({ error: "Chỉ Product Owner (PO) mới có quyền xóa dự án!" });
+    }
+
+    // 2. Thực hiện xóa toàn bộ dữ liệu liên quan trong transaction
+    await prisma.$transaction(async (tx) => {
+      // Vì schema có nhiều quan hệ không cascade, ta xóa thủ công theo thứ tự
+      
+      // Xóa Daily Standups
+      await tx.dailyStandup.deleteMany({ where: { projectId } });
+
+      // Xóa Sprints
+      await tx.sprint.deleteMany({ where: { projectId } });
+
+      // Xóa User Stories (Các Tasks, Comments, Attachments của story sẽ tự động xóa nếu có onDelete: Cascade)
+      // Nhưng để chắc chắn và xử lý các quan hệ trung gian, ta xóa từ ngọn
+      const stories = await tx.userStory.findMany({ where: { projectId }, select: { id: true } });
+      const storyIds = stories.map(s => s.id);
+
+      // Xóa Tasks liên quan
+      await tx.task.deleteMany({ where: { storyId: { in: storyIds } } });
+      
+      // Xóa User Stories
+      await tx.userStory.deleteMany({ where: { projectId } });
+
+      // Xóa Project Members
+      await tx.projectMember.deleteMany({ where: { projectId } });
+
+      // Xóa Project
+      await tx.project.delete({ where: { id: projectId } });
+    });
+
+    res.json({ message: "Dự án đã được xóa vĩnh viễn." });
+  } catch (err) {
+    console.error("Lỗi xóa dự án:", err);
+    res.status(500).json({ error: "Lỗi khi xóa dự án: " + err.message });
+  }
+});
+
 // SEED: Thêm member đầu tiên (Mặc định là PENDING để đồng bộ)
 app.post("/api/project/:projectId/members/seed", async (req, res) => {
   const { projectId } = req.params;
