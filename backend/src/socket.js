@@ -28,6 +28,20 @@ function initSocket(server, prisma) {
       }
     });
 
+    socket.on("joinUser", (userId) => {
+      if (userId) {
+        socket.join(`user_${userId}`);
+        console.log(`👤 Socket ${socket.id} joined personal room: user_${userId}`);
+      }
+    });
+
+    socket.on("leaveUser", (userId) => {
+      if (userId) {
+        socket.leave(`user_${userId}`);
+        console.log(`👤 Socket ${socket.id} left personal room: user_${userId}`);
+      }
+    });
+
     socket.on("disconnect", () => {
       console.log(`❌ Socket disconnected: ${socket.id}`);
     });
@@ -78,6 +92,37 @@ function initSocket(server, prisma) {
             projectId
           });
           console.log(`📡 Emitted ${eventName} [${params.action}] to room ${projectId}`);
+
+          // --- US-029: In-app Notification ---
+          if (["create", "update", "delete"].includes(params.action)) {
+            const title = result?.title || "Một tác vụ";
+            const type = params.model === "Task" ? "TASK_CHANGED" : "STORY_CHANGED";
+            const actionText = params.action === "create" ? "được tạo mới" : params.action === "update" ? "đã được cập nhật" : "đã bị xóa";
+            const message = `${params.model === "Task" ? "Task" : "Story"} "${title}" ${actionText}`;
+            const link = params.model === "Task" ? `/projects/${projectId}/board` : `/projects/${projectId}/backlog`;
+
+            try {
+              const members = await prisma.projectMember.findMany({
+                where: { projectId, status: "ACCEPTED" }
+              });
+
+              for (const member of members) {
+                // Không có senderId trong middleware params, nên có thể bỏ trống (System)
+                const notif = await prisma.notification.create({
+                  data: {
+                    userId: member.userId,
+                    content: message,
+                    type: type,
+                    taskTitle: title,
+                    link: link
+                  }
+                });
+                io.to(`user_${member.userId}`).emit("notification:new", notif);
+              }
+            } catch (err) {
+              console.error("Lỗi khi tạo Notification:", err);
+            }
+          }
         }
       } catch (err) {
         console.error("Socket emit error:", err);

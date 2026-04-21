@@ -5,7 +5,7 @@ import { io } from 'socket.io-client';
 const SOCKET_URL = `http://${window.location.hostname}:5001`;
 let socket = null;
 
-const getSocket = () => {
+export const getSocket = () => {
   if (!socket) {
     socket = io(SOCKET_URL, {
       autoConnect: true,

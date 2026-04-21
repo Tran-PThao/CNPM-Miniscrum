@@ -19,7 +19,8 @@ model User {
   assignedTasks   Task[]          @relation("AssignedTasks")
   standups        DailyStandup[]
   comments        Comment[]
-  notifications   Notification[]
+  notificationsReceived Notification[] @relation("ReceivedNotifications")
+  notificationsSent     Notification[] @relation("SentNotifications")
 }
 
 model Project {
@@ -129,11 +130,16 @@ model Comment {
 }
 
 model Notification {
-  id        String   @id @default(cuid())
-  userId    String
-  content   String
-  type      String   @default("SYSTEM") // SYSTEM, PROJECT_INVITE, etc.
-  isRead    Boolean  @default(false)
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id])
+  id          String   @id @default(cuid())
+  userId      String
+  senderId    String?
+  content     String
+  type        String   @default("SYSTEM") // SYSTEM, KICKED, TASK_CHANGED, v.v..
+  taskTitle   String?
+  link        String?
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  
+  user        User     @relation("ReceivedNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  sender      User?    @relation("SentNotifications", fields: [senderId], references: [id], onDelete: SetNull)
 }

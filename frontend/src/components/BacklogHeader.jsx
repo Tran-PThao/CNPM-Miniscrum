@@ -1,5 +1,6 @@
 import { useSidebar } from "../context/SidebarContext";
 import { useNavigate } from "react-router-dom";
+import NotificationBell from "./NotificationBell";
 
 const contributors = [
   "https://lh3.googleusercontent.com/aida-public/AB6AXuBjKL2ISrsCNns8o1KNta57CO8CEJ1XMRzuYwPe10xl4AfhRqOjlJxHphiFOnwPBbK-OvCqI01ZKDhkijPG8inIYpO1TPB5rHjd-PeKpH3xQ4qiyak89AmFlBz30ROkbEuc3foEzlUNkh-cI1AyMCumklnzqfkeKb2l0reslMgqDEm4ascvUsL8_FY-zrtroFodbBellAKHFsZf9i3wabuYYLEiW4fxYAIK6pHsYAhRS5_Qk5WnE4GMxOPE5Cu8rStLmOUaXrK7CN8",
@@ -62,9 +63,9 @@ export default function BacklogHeader({ daysLeft = 6, contributorCount = 12, pro
           </button>
         )}
 
-        <button className="p-2 rounded-full hover:bg-surface-container-high transition-colors hidden sm:block">
-          <span className="material-symbols-outlined">notifications</span>
-        </button>
+        <div className="hidden sm:block">
+          <NotificationBell />
+        </div>
       </div>
     </header>
   );

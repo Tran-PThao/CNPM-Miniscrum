@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useSidebar } from "../context/SidebarContext";
 import { useNavigate } from "react-router-dom";
+import NotificationBell from "./NotificationBell";
 
 export default function BoardTopBar({ timeRemaining = "4 days 12 hours remaining", projectId }) {
   const { toggle } = useSidebar();
@@ -46,9 +47,7 @@ export default function BoardTopBar({ timeRemaining = "4 days 12 hours remaining
         )}
 
         <div className="hidden sm:flex items-center gap-2">
-          <button className="p-2 text-on-surface-variant hover:bg-surface-container-high rounded-full transition-colors">
-            <span className="material-symbols-outlined">notifications</span>
-          </button>
+          <NotificationBell />
         </div>
 
         <button className="bg-gradient-to-br from-primary-container to-surface text-primary border border-primary/20 px-4 md:px-6 py-1.5 md:py-2 rounded-full font-['Manrope'] font-bold text-xs md:text-sm shadow-sm transition-all active:scale-95 hover:bg-primary/5">

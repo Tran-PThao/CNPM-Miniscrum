@@ -1,4 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { Toaster } from 'react-hot-toast';
+import { NotificationProvider } from './context/NotificationContext';
 import Register from "./pages/Register";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -14,22 +16,25 @@ import Reports from './pages/Reports';
 function App() {
   return (
     <Router>
-      <Routes>
-        <Route path="/" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/userstory/:id" element={<UserStoryDetail />} />
-        <Route path="/create-project" element={<CreateProject />} />
-        <Route path="/projects/:projectId/backlog" element={<Backlog />} />
-        <Route path="/projects/:projectId/board" element={<BoardPage />} />
-        <Route path="/projects/:projectId/members" element={<ManageMembers />} />
-        <Route path="/projects/:projectId/standup" element={<StandupPage />} />
-        <Route path="/projects/:projectId/reports" element={<Reports />} />
-        <Route path="/projects/:id/edit" element={<EditProject />} />
-        <Route path="/backlog" element={<Backlog />} />
-        <Route path="/board" element={<BoardPage />} />
-      </Routes>
+      <NotificationProvider>
+        <Routes>
+          <Route path="/" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/userstory/:id" element={<UserStoryDetail />} />
+          <Route path="/create-project" element={<CreateProject />} />
+          <Route path="/projects/:projectId/backlog" element={<Backlog />} />
+          <Route path="/projects/:projectId/board" element={<BoardPage />} />
+          <Route path="/projects/:projectId/members" element={<ManageMembers />} />
+          <Route path="/projects/:projectId/standup" element={<StandupPage />} />
+          <Route path="/projects/:projectId/reports" element={<Reports />} />
+          <Route path="/projects/:id/edit" element={<EditProject />} />
+          <Route path="/backlog" element={<Backlog />} />
+          <Route path="/board" element={<BoardPage />} />
+        </Routes>
+      </NotificationProvider>
+      <Toaster position="bottom-right" toastOptions={{ duration: 4000 }} />
     </Router>
   );
 }

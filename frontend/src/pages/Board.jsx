@@ -20,16 +20,6 @@ import {
   useSensors 
 } from '@dnd-kit/core';
 
-import { 
-  DndContext, 
-  closestCorners, 
-  PointerSensor, 
-  MouseSensor, 
-  TouchSensor, 
-  useSensor, 
-  useSensors 
-} from '@dnd-kit/core';
-
 export default function BoardPage() {
   const { projectId } = useParams();
   const [stories, setStories] = useState([]);
