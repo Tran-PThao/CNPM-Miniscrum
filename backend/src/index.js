@@ -21,14 +21,21 @@ const app = express();
 const prisma = new PrismaClient();
 // Cấu hình CORS cho phép frontend truy cập
 app.use(cors({
-  origin: function (origin, callback) {
-    // Cho phép tất cả origin trong quá trình dev (bao gồm cả không có origin - Postman, mobile,...)
-    callback(null, true);
-  },
+  origin: '*', // Cho phép tất cả các tên miền truy cập vào server
   methods: ['GET', 'POST', 'PATCH', 'DELETE', 'PUT', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
 }));
+
+//app.use(cors({
+  //origin: function (origin, callback) {
+    // Cho phép tất cả origin trong quá trình dev (bao gồm cả không có origin - Postman, mobile,...)
+    //callback(null, true);
+  //},
+  //methods: ['GET', 'POST', 'PATCH', 'DELETE', 'PUT', 'OPTIONS'],
+  //allowedHeaders: ['Content-Type', 'Authorization'],
+  //credentials: true
+//}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
