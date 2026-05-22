@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import ThemeToggle from "../components/ThemeToggle";
+import { loginUser } from "../services/api"; // 🌟 Bước 1: Import hàm chuẩn từ api.js
 
 function Login() {
   const [form, setForm] = useState({ email: "", password: "" });
@@ -17,20 +18,21 @@ function Login() {
     setLoading(true);
     setMessage("");
     try {
-      const baseUrl = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:5000/api`;
-      const res = await fetch(`${baseUrl}/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-      const data = await res.json();
-      if (!res.ok) { setMessage(data.error || "Đăng nhập thất bại"); return; }
+      // 🌟 Bước 2: Thay thế toàn bộ đoạn fetch cũ bằng hàm loginUser
+      const res = await loginUser(form);
+      const data = res.data; // Axios trả kết quả về trong object .data
+
+      // Lưu trữ thông tin đăng nhập vào localStorage
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
+      
+      // Cập nhật Context trạng thái đăng nhập toàn hệ thống
       login(data.user);
       navigate("/dashboard");
-    } catch {
-      setMessage("Không thể kết nối server");
+    } catch (error) {
+      // 🌟 Bước 3: Đọc lỗi trả về từ Backend thông qua Axios một cách an toàn
+      const errorMsg = error.response?.data?.error || "Không thể kết nối server";
+      setMessage(errorMsg);
     } finally {
       setLoading(false);
     }

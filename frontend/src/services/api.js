@@ -18,6 +18,7 @@ api.interceptors.request.use((config) => {
 });
 
 export const registerUser = (data) => api.post('/register', data);
+export const loginUser = (data) => api.post('/login', data);
 
 export const addMemberToProject = (projectId, data) =>
   api.post(`/project/${projectId}/members`, data);
