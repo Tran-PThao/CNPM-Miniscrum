@@ -5,7 +5,18 @@ let io = null;
 function initSocket(server, prisma) {
   io = new Server(server, {
     cors: {
-      origin: "*", // allow all origins (CORS handled by express if needed)
+      origin: function (origin, callback) {
+        if (!origin) return callback(null, true);
+        const allowedOrigins = [
+          'http://localhost:5173',
+          'http://localhost:3000',
+          process.env.FRONTEND_URL,
+        ].filter(Boolean);
+        if (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+          return callback(null, true);
+        }
+        callback(new Error('Not allowed by CORS'));
+      },
       methods: ["GET", "POST", "PATCH", "DELETE", "PUT", "OPTIONS"],
       credentials: true
     }

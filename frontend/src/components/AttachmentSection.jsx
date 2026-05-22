@@ -55,7 +55,7 @@ export default function AttachmentSection({ entityId, entityType = 'task' }) {
     return 'description';
   };
 
-  const baseUrl = `http://${window.location.hostname}:5000`;
+  const baseUrl = import.meta.env.VITE_BACKEND_URL || `http://${window.location.hostname}:5000`;
 
   return (
     <div className="mt-6 border-t border-outline-variant/20 pt-6">
