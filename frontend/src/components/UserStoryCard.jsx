@@ -87,6 +87,13 @@ export default function UserStoryCard({
         )}
       </div>
 
+      {/* Description */}
+      {description && (
+        <p className="text-xs text-on-surface-variant/70 leading-relaxed line-clamp-2 pl-1 border-l-2 border-outline-variant/20">
+          {description}
+        </p>
+      )}
+
       {/* Tags Section */}
       {tagList.length > 0 && (
         <div className="flex flex-wrap gap-1.5">

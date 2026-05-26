@@ -29,6 +29,15 @@ export const getStoriesByProject = (projectId) => api.get(`/project/${projectId}
 export const getMyProjectRole = (projectId) => api.get(`/project/${projectId}/role`);
 export const getDashboardStats = (projectId) => api.get(`/project/${projectId}/dashboard`);
 
+// SPRINTS
+export const getSprintsByProject = (projectId) => api.get(`/project/${projectId}/sprints`);
+export const createSprint = (projectId, data) => api.post(`/project/${projectId}/sprints`, data);
+export const updateSprint = (id, data) => api.patch(`/sprint/${id}`, data);
+export const getSprintDetails = (id) => api.get(`/sprint/${id}`);
+
+// REORDER
+export const reorderStories = (stories) => api.patch('/userstory/reorder', { stories });
+
 // LỜI MỜI
 export const getInvitations = () => api.get('/invitations');
 export const respondToInvitation = (id, action) => api.post(`/invitations/${id}/respond`, { action });
