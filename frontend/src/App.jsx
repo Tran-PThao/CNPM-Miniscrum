@@ -8,6 +8,7 @@ import Backlog from "./pages/Backlog";
 import EditProject from './pages/EditProject';
 import ManageMembers from './pages/ManageMembers';
 import BoardPage from './pages/Board';
+import StandupPage from './pages/StandupPage';
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
         <Route path="/projects/:projectId/backlog" element={<Backlog />} />
         <Route path="/projects/:projectId/board" element={<BoardPage />} />
         <Route path="/projects/:projectId/members" element={<ManageMembers />} />
+        <Route path="/projects/:projectId/standup" element={<StandupPage />} />
         <Route path="/projects/:id/edit" element={<EditProject />} />
         <Route path="/backlog" element={<Backlog />} />
         <Route path="/board" element={<BoardPage />} />

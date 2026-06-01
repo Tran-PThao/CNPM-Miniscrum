@@ -1,3 +1,4 @@
+//backend/src/index.js
 const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
@@ -5,6 +6,7 @@ const { PrismaClient } = require("@prisma/client");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const userstoryRoutes = require('./routes/userstoryRoutes');
+const standupRoutes = require('./routes/standupRoutes');
 
 dotenv.config();
 const app = express();
@@ -12,7 +14,6 @@ const prisma = new PrismaClient();
 
 app.use(cors());
 app.use(express.json());
-
 // Middleware auth (dùng cho tất cả route cần quyền)
 const authMiddleware = (req, res, next) => {
   const token = req.headers.authorization?.split(" ")[1]; // Bearer token
@@ -27,6 +28,9 @@ const authMiddleware = (req, res, next) => {
     res.status(401).json({ error: "Token không hợp lệ" });
   }
 };
+
+app.use('/api/user-stories', userstoryRoutes);
+app.use('/api/standups', authMiddleware, standupRoutes);
 
 console.log("🚀 Backend Mini Scrum Management System - Sprint 1 đang chạy...");
 
@@ -156,7 +160,7 @@ app.get("/api/invitations", authMiddleware, async (req, res) => {
       where: { userId, status: "PENDING" },
       include: {
         project: {
-          select: { name: true, key: true }
+          select: { name: true }
         }
       }
     });
@@ -436,13 +440,20 @@ app.get("/api/project/:projectId/userstories", async (req, res) => {
         { backlogOrder: "asc" },
         { title: "asc" }
       ],
-      include: { assignee: { select: { fullName: true, email: true } } }
+      include: { 
+        assignee: { select: { fullName: true, email: true } },
+        tasks: { 
+          orderBy: { createdAt: "asc" },
+          include: { assignee: { select: { id: true, fullName: true, email: true } } }
+        }
+      }
     });
     // Tránh browser cache để loadData() luôn lấy dữ liệu mới nhất
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.json(stories);
   } catch (err) {
-    res.status(500).json({ error: "Lỗi khi lấy danh sách User Stories" });
+    console.error("Lỗi khi lấy danh sách User Stories chi tiết:", err);
+    res.status(500).json({ error: "Lỗi khi lấy danh sách User Stories", detail: err.message });
   }
 });
 
@@ -455,7 +466,13 @@ app.get("/api/project/:projectId/sprints", authMiddleware, async (req, res) => {
     const sprints = await prisma.sprint.findMany({
       where: { projectId },
       orderBy: { createdAt: "asc" },
-      include: { stories: true }
+      include: { 
+        stories: { 
+          include: { 
+            tasks: { orderBy: { createdAt: "asc" } } 
+          } 
+        } 
+      }
     });
     res.json(sprints);
   } catch (err) {
@@ -494,7 +511,14 @@ app.get("/api/sprint/:id", authMiddleware, async (req, res) => {
   try {
     const sprint = await prisma.sprint.findUnique({
       where: { id },
-      include: { stories: { include: { assignee: { select: { fullName: true } } } } }
+      include: { 
+        stories: { 
+          include: { 
+            assignee: { select: { fullName: true } },
+            tasks: { orderBy: { createdAt: "asc" } }
+          } 
+        } 
+      }
     });
     if (!sprint) return res.status(404).json({ error: "Không tìm thấy Sprint" });
     res.json(sprint);
@@ -684,6 +708,91 @@ app.post("/api/project/:projectId/members/seed", async (req, res) => {
     res.json({ message: "Thêm thành công (trạng thái PENDING)", member });
   } catch (err) {
     res.status(400).json({ error: "Dữ liệu không hợp lệ: " + err.message });
+  }
+});
+
+// === TASK API ===
+
+// US-020: TẠO TASK CHO USER STORY
+app.post("/api/userstory/:storyId/tasks", authMiddleware, async (req, res) => {
+  const { storyId } = req.params;
+  const { title, description, assigneeId } = req.body;
+  try {
+    const task = await prisma.task.create({
+      data: {
+        title,
+        description: description || null,
+        storyId,
+        status: "TODO",
+        assigneeId: assigneeId || null,
+      }
+    });
+    res.status(201).json(task);
+  } catch (err) {
+    res.status(400).json({ error: "Lỗi khi tạo Task: " + err.message });
+  }
+});
+
+// US-021: CẬP NHẬT TASK (Status hoặc Details)
+app.patch("/api/tasks/:id", authMiddleware, async (req, res) => {
+  const { id } = req.params;
+  const { title, description, status, assigneeId, storyId } = req.body;
+  try {
+    const updated = await prisma.task.update({
+      where: { id },
+      data: {
+        title: title !== undefined ? title : undefined,
+        description: description !== undefined ? description : undefined,
+        status: status !== undefined ? status : undefined,
+        assigneeId: assigneeId !== undefined ? assigneeId : undefined,
+        storyId: storyId !== undefined ? storyId : undefined,
+      }
+    });
+    res.json(updated);
+  } catch (err) {
+    res.status(400).json({ error: "Lỗi khi cập nhật Task: " + err.message });
+  }
+});
+
+// GÁN TASK CHO MEMBER BẰNG EMAIL
+app.patch("/api/tasks/:id/assign", authMiddleware, async (req, res) => {
+  const { email } = req.body;
+  try {
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) return res.status(404).json({ error: "Không tìm thấy user với email này" });
+    
+    const updated = await prisma.task.update({
+      where: { id: req.params.id },
+      data: { assigneeId: user.id }
+    });
+    res.json({ message: "Gán thành viên thành công", task: updated });
+  } catch (err) {
+    res.status(500).json({ error: "Lỗi gán Task" });
+  }
+});
+
+// XÓA TASK
+app.delete("/api/tasks/:id", authMiddleware, async (req, res) => {
+  const { id } = req.params;
+  try {
+    await prisma.task.delete({ where: { id } });
+    res.json({ message: "Xóa Task thành công" });
+  } catch (err) {
+    res.status(400).json({ error: "Lỗi khi xóa Task: " + err.message });
+  }
+});
+
+// Lấy danh sách task của một story
+app.get("/api/userstory/:storyId/tasks", authMiddleware, async (req, res) => {
+  const { storyId } = req.params;
+  try {
+    const tasks = await prisma.task.findMany({
+      where: { storyId },
+      orderBy: { createdAt: "asc" }
+    });
+    res.json(tasks);
+  } catch (err) {
+    res.status(500).json({ error: "Lỗi khi lấy danh sách Task" });
   }
 });
 

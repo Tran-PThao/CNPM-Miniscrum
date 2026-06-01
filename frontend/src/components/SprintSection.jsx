@@ -1,7 +1,7 @@
 import { useDroppable } from '@dnd-kit/core';
 import UserStoryCard from "./UserStoryCard";
 
-export default function SprintSection({ sprint, stories = [], onMoveToBacklog, onAssign, onEdit, onDelete, onStatusChange, userRole }) {
+export default function SprintSection({ sprint, stories = [], onMoveToBacklog, onAssign, onEdit, onDelete, onStatusChange, userRole, selectedStories = [], onToggleSelect, onSelectAll }) {
   const isManagement = userRole === "PO" || userRole === "SM";
   const { setNodeRef, isOver } = useDroppable({
     id: `sprint-${sprint.id}`,
@@ -28,6 +28,15 @@ export default function SprintSection({ sprint, stories = [], onMoveToBacklog, o
       {/* Section header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
+          {onSelectAll && (
+            <input 
+              type="checkbox"
+              className="w-5 h-5 cursor-pointer accent-primary shrink-0"
+              checked={stories.length > 0 && stories.every(s => selectedStories.includes(s.id))}
+              onChange={(e) => onSelectAll(e.target.checked, stories)}
+              title="Chọn tất cả trong Sprint"
+            />
+          )}
           <h3 className="font-['Manrope'] font-bold text-lg text-on-surface">{sprint.name}</h3>
           <span className={`text-[10px] px-2 py-0.5 rounded uppercase font-bold tracking-widest ${
             sprint.status === 'ACTIVE' 
@@ -110,6 +119,8 @@ export default function SprintSection({ sprint, stories = [], onMoveToBacklog, o
               userRole={userRole}
               moveIcon="arrow_downward"
               moveTitle="Đẩy về Backlog"
+              isSelected={selectedStories.includes(story.id)}
+              onToggleSelect={onToggleSelect}
             />
           ))
         ) : (

@@ -239,10 +239,16 @@ export default function ManageMembers() {
                     </div>
 
                     <div className="flex items-center gap-3">
+                      {member.status === 'PENDING' && (
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-xl animate-pulse">
+                          <span className="material-symbols-outlined text-sm">schedule</span>
+                          <span className="text-[10px] font-black uppercase tracking-widest">Đang chờ</span>
+                        </div>
+                      )}
+
                       {isPO && member.userId !== currentUser.id && (
                         <button 
                           onClick={() => handleKick(member.userId, member.user.fullName)}
-                          disabled={updatingId === member.userId}
                           className="p-2 text-error hover:bg-error/10 rounded-xl transition-all"
                           title="Kick thành viên"
                         >

@@ -32,6 +32,8 @@ export function SortableUserStoryCard(props) {
       <UserStoryCard 
         {...props}
         isDragging={isDragging}
+        isSelected={props.isSelected}
+        onToggleSelect={props.onToggleSelect}
       />
     </div>
   );

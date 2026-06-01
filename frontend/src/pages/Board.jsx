@@ -121,9 +121,9 @@ export default function BoardPage() {
         {/* Kanban board */}
         <div className="flex-1 overflow-x-auto pb-6">
           <div className="flex h-full gap-4 md:gap-8 min-w-[900px] md:min-w-0 md:grid md:grid-cols-3">
-            <KanbanColumn title="To Do" variant="todo" cards={todoCards} onStatusUpdate={handleStatusUpdate} onAssign={handleAssign} onEdit={handleEditStory} onDelete={handleDeleteStory} userRole={userRole} />
-            <KanbanColumn title="In Progress" variant="inprogress" cards={inProgressCards} onStatusUpdate={handleStatusUpdate} onAssign={handleAssign} onEdit={handleEditStory} onDelete={handleDeleteStory} userRole={userRole} />
-            <KanbanColumn title="Done" variant="done" cards={doneCards} onStatusUpdate={handleStatusUpdate} onAssign={handleAssign} onEdit={handleEditStory} onDelete={handleDeleteStory} userRole={userRole} />
+            <KanbanColumn title="To Do" status="TODO" items={todoCards} onUpdateItem={handleStatusUpdate} onAssign={handleAssign} onEdit={handleEditStory} onDelete={handleDeleteStory} userRole={userRole} />
+            <KanbanColumn title="In Progress" status="IN_PROGRESS" items={inProgressCards} onUpdateItem={handleStatusUpdate} onAssign={handleAssign} onEdit={handleEditStory} onDelete={handleDeleteStory} userRole={userRole} />
+            <KanbanColumn title="Done" status="DONE" items={doneCards} onUpdateItem={handleStatusUpdate} onAssign={handleAssign} onEdit={handleEditStory} onDelete={handleDeleteStory} userRole={userRole} />
           </div>
         </div>
       </div>
