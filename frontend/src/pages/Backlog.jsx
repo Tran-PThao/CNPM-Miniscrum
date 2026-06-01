@@ -6,7 +6,6 @@ import { useNavigate, useParams } from "react-router-dom";
 import { 
   DndContext, 
   closestCenter, 
-  rectIntersection,
   PointerSensor, 
   MouseSensor,
   TouchSensor,
@@ -25,27 +24,21 @@ import api, {
   createUserStory, 
   updateUserStory, 
   getSprintsByProject,
-  reorderStories
-} from "../services/api";
-import CreateStoryModal from "../components/CreateStoryModal";
-import CreateSprintModal from "../components/CreateSprintModal";
-import CreateTaskModal from "../components/CreateTaskModal";
-import api, { 
-  getStoriesByProject, 
-  getSprintsByProject, 
-  updateUserStory, 
-  createUserStory, 
   reorderStories,
   createStoryTask, 
   updateTask,
   getProjectMembers,
   assignTaskByEmail
 } from "../services/api";
+import CreateStoryModal from "../components/CreateStoryModal";
+import CreateSprintModal from "../components/CreateSprintModal";
+import CreateTaskModal from "../components/CreateTaskModal";
 
 export default function Backlog() {
   const { projectId } = useParams();
 
-  // === State cũ giữ nguyên (US-007 & US-008) ===
+  // === State ===
+  const [activeTab, setActiveTab] = useState("backlog");
   const [searchTerm, setSearchTerm] = useState("");
   const [filterPriority, setFilterPriority] = useState("ALL");
   const [filterStatus, setFilterStatus] = useState("ALL");
@@ -58,6 +51,8 @@ export default function Backlog() {
   const [members, setMembers] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSprintModalOpen, setIsSprintModalOpen] = useState(false);
+  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const [taskStory, setTaskStory] = useState(null);
   const [editingStory, setEditingStory] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -97,7 +92,8 @@ export default function Backlog() {
       api.get(`/project/${projectId}/role`),
       getProjectMembers(projectId)
     ]).then(([storiesRes, sprintsRes, projectRes, roleRes, membersRes]) => {
-      setStories(Array.isArray(storiesRes.data) ? storiesRes.data : []);
+      const storiesData = storiesRes.data?.content || storiesRes.data;
+      setStories(Array.isArray(storiesData) ? storiesData : []);
       setSprints(Array.isArray(sprintsRes.data) ? sprintsRes.data : []);
       setProject(projectRes.data);
       setUserRole(roleRes.data.role);
@@ -117,7 +113,8 @@ export default function Backlog() {
         getSprintsByProject(projectId),
         getProjectMembers(projectId)
       ]);
-      setStories(Array.isArray(storiesRes.data) ? storiesRes.data : []);
+      const storiesData = storiesRes.data?.content || storiesRes.data;
+      setStories(Array.isArray(storiesData) ? storiesData : []);
       setSprints(Array.isArray(sprintsRes.data) ? sprintsRes.data : []);
       setMembers(Array.isArray(membersRes.data) ? membersRes.data : []);
     } catch (err) {
@@ -126,7 +123,6 @@ export default function Backlog() {
   };
 
   // === Lọc stories cho Product Backlog ===
-  // Stories trong backlog là những cái không có sprintId (chưa được gán vào Sprint nào)
   const backlogStories = stories.filter(s => s.sprintId === null || s.sprintId === undefined);
 
   const filteredBacklogStories = backlogStories
@@ -138,136 +134,125 @@ export default function Backlog() {
     .filter(story => filterStatus === "ALL" || story.status === filterStatus)
     .filter(story => {
       if (filterTag === "ALL") return true;
-
       const storyTags = Array.isArray(story.tags)
         ? story.tags
         : (typeof story.tags === 'string'
           ? JSON.parse(story.tags || '[]')
           : []);
-
       return storyTags.includes(filterTag);
     });
 
-  // ====================== DRAG & DROP (US-009) ======================
-  
   // ====================== DRAG & DROP ======================
-const handleDragEnd = async (event) => {
-  const { active, over } = event;
-  if (!over) return;
+  const handleDragEnd = async (event) => {
+    const { active, over } = event;
+    if (!over) return;
 
-  const activeId = active.id.toString();
-  const overId = over.id.toString();
-  if (activeId === overId) return;
+    const activeId = active.id.toString();
+    const overId = over.id.toString();
+    if (activeId === overId) return;
 
-  const activeStory = stories.find(s => s.id === activeId);
-  if (!activeStory) return;
+    const activeStory = stories.find(s => s.id === activeId);
+    if (!activeStory) return;
 
-  // Xác định vùng thả (quan trọng: thêm nhận diện column-)
-  let targetZone = null;
-  let targetSprintId = null;
+    let targetZone = null;
+    let targetSprintId = null;
 
-  if (overId === "backlog-droppable-area") {
-    targetZone = "BACKLOG";
-  } else if (overId.startsWith("sprint-")) {
-    targetZone = "SPRINT";
-    targetSprintId = overId.replace("sprint-", "");
-  } else if (overId.startsWith("column-")) {
-    targetZone = "SPRINT";           // drop vào cột TODO / IN_PROGRESS / DONE
-  } else {
-    // drop lên một card cụ thể
-    const overStory = stories.find(s => s.id === overId);
-    if (overStory) {
-      targetZone = overStory.sprintId ? "SPRINT" : "BACKLOG";
-      targetSprintId = overStory.sprintId || null;
-    }
-  }
-
-  if (!targetZone) return;
-
-  const isCurrentlyInBacklog = activeStory.sprintId == null;
-
-  // ==================== 5. CHUYỂN GIỮA CÁC CỘT TRONG TASK BOARD ====================
-  if (!isCurrentlyInBacklog && targetZone === "SPRINT" && overId.startsWith("column-")) {
-    const newStatus = overId.replace("column-", "");
-    if (activeStory.status !== newStatus) {
-      try {
-        await updateUserStory(activeId, { status: newStatus });
-        await loadData();
-        return;
-      } catch (err) {
-        console.error("Lỗi chuyển cột:", err);
-        alert("Không thể chuyển trạng thái task");
+    if (overId === "backlog-droppable-area") {
+      targetZone = "BACKLOG";
+    } else if (overId.startsWith("sprint-")) {
+      targetZone = "SPRINT";
+      targetSprintId = overId.replace("sprint-", "");
+    } else if (overId.startsWith("column-")) {
+      targetZone = "SPRINT";
+    } else {
+      const overStory = stories.find(s => s.id === overId);
+      if (overStory) {
+        targetZone = overStory.sprintId ? "SPRINT" : "BACKLOG";
+        targetSprintId = overStory.sprintId || null;
       }
     }
-    return;
-  }
 
-  // 1. KÉO-THẢ TRONG CÙNG PRODUCT BACKLOG
-  if (isCurrentlyInBacklog && targetZone === "BACKLOG") {
-    const activeIndex = backlogStories.findIndex(s => s.id === activeId);
-    let finalOverIndex = backlogStories.findIndex(s => s.id === overId);
+    if (!targetZone) return;
 
-    if (overId === "backlog-droppable-area" || finalOverIndex === -1) {
-      finalOverIndex = backlogStories.length - 1;
-    }
+    const isCurrentlyInBacklog = activeStory.sprintId == null;
 
-    if (activeIndex !== -1 && finalOverIndex !== -1) {
-      const newOrderedBacklog = arrayMove(backlogStories, activeIndex, finalOverIndex);
-      const sprintStoriesList = stories.filter(s => s.sprintId != null);
-
-      setStories([...sprintStoriesList, ...newOrderedBacklog]); // optimistic
-
-      try {
-        const updates = newOrderedBacklog.map((story, index) => ({
-          id: story.id,
-          backlogOrder: index,
-        }));
-        await reorderStories(updates);
-      } catch (err) {
-        console.error("Lỗi khi lưu thứ tự:", err);
-        await loadData();
+    // Chuyển giữa các cột trong Task Board
+    if (!isCurrentlyInBacklog && targetZone === "SPRINT" && overId.startsWith("column-")) {
+      const newStatus = overId.replace("column-", "");
+      if (activeStory.status !== newStatus) {
+        try {
+          await updateUserStory(activeId, { status: newStatus });
+          await loadData();
+        } catch (err) {
+          console.error("Lỗi chuyển cột:", err);
+          alert("Không thể chuyển trạng thái task");
+        }
       }
+      return;
     }
-    return;
-  }
 
-  // 2. TỪ BACKLOG → SPRINT
-  if (isCurrentlyInBacklog && targetZone === "SPRINT") {
-    try {
-      await updateUserStory(activeId, { sprintId: targetSprintId, status: "TODO" });
-      await loadData();
-    } catch (err) {
-      console.error(err);
-      alert("Không thể đưa vào Sprint");
+    // Kéo-thả trong cùng Product Backlog
+    if (isCurrentlyInBacklog && targetZone === "BACKLOG") {
+      const activeIndex = backlogStories.findIndex(s => s.id === activeId);
+      let finalOverIndex = backlogStories.findIndex(s => s.id === overId);
+      if (overId === "backlog-droppable-area" || finalOverIndex === -1) {
+        finalOverIndex = backlogStories.length - 1;
+      }
+      if (activeIndex !== -1 && finalOverIndex !== -1) {
+        const newOrderedBacklog = arrayMove(backlogStories, activeIndex, finalOverIndex);
+        const sprintStoriesList = stories.filter(s => s.sprintId != null);
+        setStories([...sprintStoriesList, ...newOrderedBacklog]);
+        try {
+          const updates = newOrderedBacklog.map((story, index) => ({
+            id: story.id,
+            backlogOrder: index,
+          }));
+          await reorderStories(updates);
+        } catch (err) {
+          console.error("Lỗi khi lưu thứ tự:", err);
+          await loadData();
+        }
+      }
+      return;
     }
-    return;
-  }
 
-  // 3. TỪ SPRINT → BACKLOG
-  if (!isCurrentlyInBacklog && targetZone === "BACKLOG") {
-    try {
-      await updateUserStory(activeId, { sprintId: null, status: "BACKLOG" });
-      await loadData();
-    } catch (err) {
-      console.error(err);
-      alert("Không thể rút về Backlog");
+    // Từ Backlog → Sprint
+    if (isCurrentlyInBacklog && targetZone === "SPRINT") {
+      try {
+        await updateUserStory(activeId, { sprintId: targetSprintId, status: "TODO" });
+        await loadData();
+      } catch (err) {
+        console.error(err);
+        alert("Không thể đưa vào Sprint");
+      }
+      return;
     }
-    return;
-  }
 
-  // 4. CHUYỂN GIỮA CÁC SPRINT
-  if (!isCurrentlyInBacklog && targetZone === "SPRINT" && activeStory.sprintId !== targetSprintId) {
-    try {
-      await updateUserStory(activeId, { sprintId: targetSprintId });
-      await loadData();
-    } catch (err) {
-      console.error(err);
+    // Từ Sprint → Backlog
+    if (!isCurrentlyInBacklog && targetZone === "BACKLOG") {
+      try {
+        await updateUserStory(activeId, { sprintId: null, status: "BACKLOG" });
+        await loadData();
+      } catch (err) {
+        console.error(err);
+        alert("Không thể rút về Backlog");
+      }
+      return;
     }
-    return;
-  }
-};
 
-  // ====================== Các hàm cũ giữ nguyên ======================
+    // Chuyển giữa các Sprint
+    if (!isCurrentlyInBacklog && targetZone === "SPRINT" && activeStory.sprintId !== targetSprintId) {
+      try {
+        await updateUserStory(activeId, { sprintId: targetSprintId });
+        await loadData();
+      } catch (err) {
+        console.error(err);
+      }
+      return;
+    }
+  };
+
+  // ====================== Các hàm xử lý ======================
   const handleModalSubmit = async (formData) => {
     setIsSubmitting(true);
     try {
@@ -340,6 +325,22 @@ const handleDragEnd = async (event) => {
       await loadData();
     } catch (e) {
       window.alert(e.response?.data?.error || "Lỗi khi xóa Task!");
+    }
+  };
+
+  const handleCreateTask = async (formData) => {
+    if (!taskStory) return;
+    setIsSubmitting(true);
+    try {
+      await createStoryTask(taskStory.id, formData);
+      await loadData();
+      setIsTaskModalOpen(false);
+      setTaskStory(null);
+    } catch (error) {
+      console.error("Lỗi khi tạo Task:", error);
+      window.alert(error.response?.data?.error || "Lỗi khi tạo Task!");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -434,7 +435,7 @@ const handleDragEnd = async (event) => {
       >
         <div className="space-y-6 md:space-y-10 pb-20">
 
-          {/* TAB CHUYỂN ĐỔI - Giống Jira */}
+          {/* TAB CHUYỂN ĐỔI */}
           <div className="flex border-b border-outline-variant mb-6">
             <button
               onClick={() => setActiveTab("backlog")}
@@ -459,7 +460,7 @@ const handleDragEnd = async (event) => {
             </button>
           </div>
 
-          {/* MIDDLE: Product Backlog */}
+          {/* NỘI DUNG TAB */}
           {activeTab === "backlog" ? (
             <ProductBacklog 
               projectId={projectId}
@@ -486,20 +487,20 @@ const handleDragEnd = async (event) => {
                   alert("Vui lòng tạo một Sprint trước.");
                   return;
                 }
-                  if (window.confirm(`Đưa User Story này vào ${latestSprint.name}?`)) {
-                    try {
-                      await updateUserStory(id, { sprintId: latestSprint.id, status: "TODO" });
-                      await loadData();
-                    } catch (err) {
-                    }
+                if (window.confirm(`Đưa User Story này vào ${latestSprint.name}?`)) {
+                  try {
+                    await updateUserStory(id, { sprintId: latestSprint.id, status: "TODO" });
+                    await loadData();
+                  } catch (err) {
+                    alert("Có lỗi khi đưa vào Sprint");
                   }
-                }}
-                onAddTask={(id, title) => {
-                  console.log("Opening Task Modal for story:", id, title);
-                  setTaskStory({ id, title });
-                  setIsTaskModalOpen(true);
-                }}
-              />
+                }
+              }}
+              onAddTask={(id, title) => {
+                setTaskStory({ id, title });
+                setIsTaskModalOpen(true);
+              }}
+            />
           ) : (
             <TaskBoard 
               sprints={sprints}
@@ -523,12 +524,12 @@ const handleDragEnd = async (event) => {
             />
           )}
 
-          {/* BOTTOM: Planned Sprints (Sprint Planning Area) */}
+          {/* BOTTOM: Active Sprints */}
           <div className="space-y-4 pt-4 border-t border-outline-variant/10">
             <div className="flex justify-between items-center px-2">
               <h3 className="text-lg font-bold text-on-surface-variant flex items-center gap-2">
                 <span className="material-symbols-outlined">event_note</span>
-                Sprint Planning
+                Active Sprints
               </h3>
             </div>
             
@@ -564,63 +565,8 @@ const handleDragEnd = async (event) => {
               </div>
             )}
           </div>
-          
-          {/* MIDDLE: Product Backlog */}
-          <ProductBacklog 
-            projectId={projectId}
-            //stories={filteredBacklogStories}
-            //searchTerm={searchTerm}
-            //onSearchChange={setSearchTerm}
-            //filterPriority={filterPriority}
-            //onFilterPriorityChange={setFilterPriority}
-            //filterStatus={filterStatus}
-            //onFilterStatusChange={setFilterStatus}
-            //filterTag={filterTag}
-            //onFilterTagChange={setFilterTag}  
-            onAddStory={handleAddStory} 
-            onAssignStory={handleAssignStory} 
-            onEdit={handleEditStory}
-            onDelete={handleDeleteStory}
-            userRole={userRole} 
-            selectedStories={selectedStories}
-            onToggleSelect={toggleStorySelection}
-            onSelectAll={handleSelectAll}
-            onMoveToSprint={async (id) => {
-              const latestSprint = sprints.find(s => s.status === 'PLANNED') || sprints[0];
-              if (!latestSprint) {
-                alert("Vui lòng tạo một Sprint trước.");
-                return;
-              }
-              if (window.confirm(`Đưa User Story này vào ${latestSprint.name}?`)) {
-                try {
-                  await updateUserStory(id, { sprintId: latestSprint.id, status: "TODO" });
-                  await loadData();
-                } catch (err) {
-                  alert("Có lỗi khi đưa vào Sprint");
-                }
-                if (window.confirm(`Đưa User Story này vào ${latestSprint.name}?`)) {
-                  try {
-                    await updateUserStory(id, { sprintId: latestSprint.id, status: "TODO" });
-                    await loadData();
-                  } catch (err) {
-                    alert("Có lỗi khi đưa vào Sprint");
-                  }
-                }
-              }}
-            />
-          ) : (
-            <TaskBoard 
-              sprints={sprints}
-              stories={stories}
-              onUpdateStory={async (storyId, data) => {
-                await updateUserStory(storyId, data);
-                await loadData();
-              }}
-              userRole={userRole}
-            />
-          )}
 
-          {/* BOTTOM: Planned Sprints (Sprint Planning Area) */}
+          {/* BOTTOM: Sprint Planning */}
           <div className="space-y-4 pt-4 border-t border-outline-variant/10">
             <div className="flex justify-between items-center px-2">
               <h3 className="text-lg font-bold text-on-surface-variant flex items-center gap-2">

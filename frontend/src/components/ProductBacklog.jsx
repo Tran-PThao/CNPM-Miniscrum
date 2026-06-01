@@ -117,7 +117,7 @@ export default function ProductBacklog({
             className="bg-surface-container-lowest px-3 py-2 rounded-lg border border-outline-variant/30 focus:border-primary outline-none cursor-pointer w-32 text-sm"
           >
             <option value="ALL">Tất cả nhãn</option>
-            {displayAllTags.map(tag => (
+            {allTags.map(tag => (
               <option key={tag} value={tag}>{tag}</option>
             ))}
           </select>
@@ -185,15 +185,13 @@ export default function ProductBacklog({
       )}
 
       {/* Nút thêm */}
-      {isManagement && (
-        <div
-          onClick={onAddStory}
-          className="mt-6 border border-dashed border-outline-variant/30 p-3 rounded-xl flex items-center justify-center gap-2 text-on-surface-variant/60 hover:bg-primary/5 hover:text-primary hover:border-primary/40 transition-all cursor-pointer group bg-surface-container-lowest"
-        >
-          <span className="material-symbols-outlined group-hover:rotate-90 transition-transform text-xl">add_circle</span>
-          <span className="font-bold text-sm">Thêm User Story mới vào Backlog</span>
-        </div>
-      )}
+      <div
+        onClick={onAddStory}
+        className="mt-6 border border-dashed border-outline-variant/30 p-3 rounded-xl flex items-center justify-center gap-2 text-on-surface-variant/60 hover:bg-primary/5 hover:text-primary hover:border-primary/40 transition-all cursor-pointer group bg-surface-container-lowest"
+      >
+        <span className="material-symbols-outlined group-hover:rotate-90 transition-transform text-xl">add_circle</span>
+        <span className="font-bold text-sm">Thêm User Story mới vào Backlog</span>
+      </div>
     </section>
   );
 }

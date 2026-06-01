@@ -452,7 +452,8 @@ app.get("/api/project/:projectId/userstories", async (req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.json(stories);
   } catch (err) {
-    res.status(500).json({ error: "Lỗi khi lấy danh sách User Stories" });
+    console.error("Lỗi khi lấy danh sách User Stories chi tiết:", err);
+    res.status(500).json({ error: "Lỗi khi lấy danh sách User Stories", detail: err.message });
   }
 });
 

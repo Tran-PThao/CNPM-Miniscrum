@@ -68,30 +68,22 @@ export default function SprintBoard({ sprint, stories = [], members = [], onUpda
               status="IN_PROGRESS"
               items={(story.tasks || []).filter(t => t.status === 'IN_PROGRESS')}
               itemType="task"
-<<<<<<< HEAD
               members={members}
               onUpdateItem={onUpdateTask}
-              userRole={userRole}
-=======
-              onUpdateItem={() => {}}
               onAssignTask={onAssignTask}
               onDeleteTask={onDeleteTask}
->>>>>>> origin/main
+              userRole={userRole}
             />
             <KanbanColumn
               columnId={`taskcolumn-${story.id}-DONE`}
               status="DONE"
               items={(story.tasks || []).filter(t => t.status === 'DONE')}
               itemType="task"
-<<<<<<< HEAD
               members={members}
               onUpdateItem={onUpdateTask}
-              userRole={userRole}
-=======
-              onUpdateItem={() => {}}
               onAssignTask={onAssignTask}
               onDeleteTask={onDeleteTask}
->>>>>>> origin/main
+              userRole={userRole}
             />
           </div>
         ))}
