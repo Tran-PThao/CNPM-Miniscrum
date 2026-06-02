@@ -1,5 +1,6 @@
-//backend/src/index.js
 const express = require("express");
+const http = require("http");
+const { initSocket } = require("./socket");
 const cors = require("cors");
 const dotenv = require("dotenv");
 const { PrismaClient } = require("@prisma/client");
@@ -395,8 +396,20 @@ app.patch("/api/userstory/:id", authMiddleware, async (req, res) => {
         backlogOrder: req.body.backlogOrder !== undefined ? req.body.backlogOrder : undefined,
       },
     });
+
+    // Nếu thay đổi status, lưu lại lịch sử
+    if (status !== undefined && status !== story.status) {
+      await prisma.userStoryStatusHistory.create({
+        data: {
+          storyId: id,
+          status: status
+        }
+      });
+    }
+
     res.json({ message: "Cập nhật thành công", story: updated });
   } catch (err) {
+    console.error("Update story error:", err);
     res.status(500).json({ error: "Lỗi cập nhật User Story" });
   }
 });
@@ -585,9 +598,57 @@ app.patch("/api/sprint/:id", authMiddleware, async (req, res) => {
     const sprint = await prisma.sprint.findUnique({ where: { id } });
     if (!sprint) return res.status(404).json({ error: "Không tìm thấy Sprint" });
 
-    const hasPermission = await checkPOorSM(req.user.userId, sprint.projectId);
-    if (!hasPermission) {
-      return res.status(403).json({ error: "Chỉ Scrum Master hoặc PO mới được cập nhật Sprint." });
+    // Lấy thông tin role của người dùng trong dự án
+    const member = await prisma.projectMember.findUnique({
+      where: { userId_projectId: { userId: req.user.userId, projectId: sprint.projectId } },
+    });
+
+    if (!member || (member.role !== "PO" && member.role !== "SM")) {
+      return res.status(403).json({ error: "Bạn không có quyền cập nhật Sprint." });
+    }
+
+    // == US-049: Kiểm tra xung đột và quyền hạn khi Bắt đầu Sprint (Start Sprint) ==
+    if (status === 'ACTIVE' && sprint.status !== 'ACTIVE') {
+      if (member.role !== "SM" && member.role !== "PO") {
+        return res.status(403).json({ error: "Chỉ Scrum Master hoặc Product Owner (Chủ dự án) mới có quyền bắt đầu Sprint!" });
+      }
+
+      // BẮT BUỘC PHẢI CÓ END DATE KHI BẮT ĐẦU SPRINT
+      if (!endDate && !sprint.endDate) {
+        return res.status(400).json({ error: "Vui lòng thiết lập ngày kết thúc cho Sprint trước khi bắt đầu!" });
+      }
+
+      const activeSprint = await prisma.sprint.findFirst({
+        where: { projectId: sprint.projectId, status: 'ACTIVE' }
+      });
+      if (activeSprint) {
+        return res.status(400).json({ error: `Dự án hiện đã có một Sprint đang hoạt động (${activeSprint.name}). Vui lòng kết thúc nó trước khi bắt đầu Sprint mới.` });
+      }
+    }
+
+    // == US-050: Logic kết thúc Sprint (Complete Sprint) ==
+    if (status === 'COMPLETED' && sprint.status === 'ACTIVE') {
+      if (member.role !== "SM" && member.role !== "PO") {
+        return res.status(403).json({ error: "Chỉ Scrum Master hoặc Product Owner (Chủ dự án) mới có quyền kết thúc Sprint!" });
+      }
+
+      const { moveUnfinishedTo } = req.body;
+      if (moveUnfinishedTo) {
+        // Tìm các story chưa hoàn thành (không phải DONE và không phải REJECTED)
+        const unfinishedStories = await prisma.userStory.findMany({
+          where: { sprintId: id, NOT: [{ status: 'DONE' }, { status: 'REJECTED' }] }
+        });
+
+        if (unfinishedStories.length > 0) {
+          const targetSprintId = moveUnfinishedTo === 'BACKLOG' ? null : moveUnfinishedTo;
+          const targetStatus = moveUnfinishedTo === 'BACKLOG' ? 'BACKLOG' : 'TODO';
+
+          await prisma.userStory.updateMany({
+            where: { id: { in: unfinishedStories.map(s => s.id) } },
+            data: { sprintId: targetSprintId, status: targetStatus }
+          });
+        }
+      }
     }
 
     const updated = await prisma.sprint.update({
@@ -646,6 +707,243 @@ app.get("/api/project/:projectId/dashboard", async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ error: "Lỗi lấy dữ liệu Dashboard" });
+  }
+});
+
+// === ANALYTICS API (US-025, US-026, US-027) ===
+
+// 1. BURNDOWN CHART DATA
+app.get("/api/analytics/:projectId/sprint/:sprintId/burndown", authMiddleware, async (req, res) => {
+  const { projectId, sprintId } = req.params;
+  const requesterId = req.user.userId;
+
+  try {
+    // KIỂM TRA QUYỀN (CHỈ PO/SM)
+    const member = await prisma.projectMember.findUnique({
+      where: { userId_projectId: { userId: requesterId, projectId } }
+    });
+    if (!member || (member.role !== 'PO' && member.role !== 'SM')) {
+      return res.status(403).json({ error: "Chỉ PO hoặc SM mới có quyền xem dữ liệu Burndown." });
+    }
+    const sprint = await prisma.sprint.findUnique({
+      where: { id: sprintId },
+      include: { stories: { include: { statusHistory: true } } }
+    });
+
+    if (!sprint || !sprint.startDate || !sprint.endDate) {
+      // Thay vì 400, trả về mảng rỗng và info để frontend hiển thị thông báo nhẹ nhàng hơn nếu cần
+      return res.json({ 
+        error: "Sprint chưa có ngày bắt đầu/kết thúc.",
+        data: [],
+        details: "Vui lòng thiết lập ngày tháng cho Sprint để xem biểu đồ Burndown."
+      });
+    }
+
+    const start = new Date(sprint.startDate);
+    const end = new Date(sprint.endDate);
+    const days = [];
+    let curr = new Date(start);
+    while (curr <= end) {
+      days.push(new Date(curr));
+      curr.setDate(curr.getDate() + 1);
+    }
+    // Đảm bảo include ngày cuối nếu chưa có
+    if (days[days.length - 1] < end) days.push(new Date(end));
+
+    const totalPoints = sprint.stories.reduce((sum, s) => sum + (s.storyPoints || 0), 0);
+    const data = days.map(day => {
+      const dayStr = day.toISOString().split('T')[0];
+      
+      // Tính toán số điểm còn lại tính tới cuối ngày này
+      let remainingPoints = totalPoints;
+      sprint.stories.forEach(story => {
+        // Tìm lịch sử chuyển sang DONE trước hoặc trong ngày này
+        const doneHistory = story.statusHistory
+          .filter(h => h.status === 'DONE' && new Date(h.changedAt) <= day)
+          .sort((a, b) => new Date(b.changedAt) - new Date(a.changedAt))[0];
+
+        if (doneHistory) {
+          remainingPoints -= (story.storyPoints || 0);
+        }
+      });
+
+      // Ideal line calculation
+      const totalDays = (end - start) / (1000 * 60 * 60 * 24);
+      const daysPassed = (day - start) / (1000 * 60 * 60 * 24);
+      const ideal = Math.max(0, totalPoints - (totalPoints / totalDays) * daysPassed);
+
+      return {
+        date: dayStr,
+        actual: remainingPoints,
+        ideal: parseFloat(ideal.toFixed(2))
+      };
+    });
+
+    res.json(data);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Lỗi tính toán Burndown" });
+  }
+});
+
+app.get("/api/analytics/:projectId/velocity", authMiddleware, async (req, res) => {
+  const { projectId } = req.params;
+  const requesterId = req.user.userId;
+
+  try {
+    // KIỂM TRA QUYỀN (CHỈ PO/SM)
+    const member = await prisma.projectMember.findUnique({
+      where: { userId_projectId: { userId: requesterId, projectId } }
+    });
+    if (!member || (member.role !== 'PO' && member.role !== 'SM')) {
+      return res.status(403).json({ error: "Chỉ PO hoặc SM mới có quyền xem dữ liệu Velocity." });
+    }
+
+    console.log(`[Analytics] Fetching Velocity for project: ${projectId}`);
+    const sprints = await prisma.sprint.findMany({
+      where: { projectId, status: 'COMPLETED' },
+      include: { stories: true },
+      orderBy: { createdAt: 'asc' }
+    });
+
+    console.log(`[Analytics] Found ${sprints.length} completed sprints for velocity.`);
+
+    const data = sprints.map(sprint => {
+      const commitment = sprint.stories.reduce((sum, s) => sum + (s.storyPoints || 0), 0);
+      const completed = sprint.stories
+        .filter(s => s.status === 'DONE')
+        .reduce((sum, s) => sum + (s.storyPoints || 0), 0);
+      
+      return {
+        name: sprint.name,
+        commitment,
+        completed
+      };
+    });
+
+    res.json(data);
+  } catch (err) {
+    console.error("[Analytics] Velocity calculation error:", err);
+    res.status(500).json({ error: "Lỗi tính toán Velocity" });
+  }
+});
+
+// 3. SPRINT REPORT EXPORT (US-027)
+app.get("/api/analytics/:projectId/sprint/:sprintId/report", authMiddleware, async (req, res) => {
+  const { projectId, sprintId } = req.params;
+  const { format } = req.query; // 'pdf' or 'excel'
+  const requesterId = req.user.userId;
+
+  try {
+    // KIỂM TRA QUYỀN (CHỈ PO/SM)
+    const member = await prisma.projectMember.findUnique({
+      where: { userId_projectId: { userId: requesterId, projectId } }
+    });
+    if (!member || (member.role !== 'PO' && member.role !== 'SM')) {
+      return res.status(403).json({ error: "Chỉ PO hoặc SM mới có quyền xuất báo cáo Sprint." });
+    }
+    const sprint = await prisma.sprint.findUnique({
+      where: { id: sprintId },
+      include: { 
+        stories: { 
+          include: { 
+            tasks: true,
+            assignee: { select: { fullName: true } }
+          } 
+        },
+        project: true
+      }
+    });
+
+    if (!sprint) return res.status(404).json({ error: "Sprint không tồn tại" });
+
+    // Hỗ trợ tiếng Việt trong filename bằng cách encode
+    const safeSprintName = encodeURIComponent(sprint.name).replace(/['()]/g, escape).replace(/\*/g, '%2A');
+
+    if (format === 'excel') {
+      const ExcelJS = require('exceljs');
+      const workbook = new ExcelJS.Workbook();
+      const sheet = workbook.addWorksheet('Sprint Report');
+
+      sheet.columns = [
+        { header: 'Tiêu đề (Title)', key: 'title', width: 40 },
+        { header: 'Điểm (Points)', key: 'points', width: 15 },
+        { header: 'Trạng thái', key: 'status', width: 20 },
+        { header: 'Người thực hiện', key: 'assignee', width: 25 },
+        { header: 'Số Task', key: 'tasks', width: 15 },
+      ];
+
+      if (sprint.stories && sprint.stories.length > 0) {
+        sprint.stories.forEach(s => {
+          sheet.addRow({
+            title: s.title,
+            points: s.storyPoints || 0,
+            status: s.status,
+            assignee: s.assignee?.fullName || 'Chưa gán',
+            tasks: s.tasks ? s.tasks.length : 0
+          });
+        });
+      } else {
+        sheet.addRow({ title: '(Sprint không có User Story nào)' });
+      }
+
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      // Cách thức header chuẩn cho Unicode filename
+      res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''Sprint_Report_${safeSprintName}.xlsx`);
+      await workbook.xlsx.write(res);
+      res.end();
+      return;
+    }
+
+    if (format === 'pdf') {
+      const PDFDocument = require('pdfkit');
+      const doc = new PDFDocument({ margin: 50 });
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''Sprint_Report_${safeSprintName}.pdf`);
+      doc.pipe(res);
+
+      // SỬ DỤNG FONT HỆ THỐNG ĐỂ HỖ TRỢ TIẾNG VIỆT
+      const fontPath = 'C:\\Windows\\Fonts\\arial.ttf';
+      try {
+        doc.font(fontPath);
+      } catch (fErr) {
+        console.warn("Font Arial not found, falling back to default (Vietnamese might break)");
+      }
+
+      doc.fontSize(24).fillColor('#0052CC').text(`Báo cáo Sprint: ${sprint.name}`, { align: 'center' });
+      doc.moveDown();
+      
+      doc.fontSize(12).fillColor('#172B4D').text(`Dự án: ${sprint.project.name}`);
+      doc.text(`Thời gian: ${sprint.startDate ? new Date(sprint.startDate).toLocaleDateString('vi-VN') : 'N/A'} - ${sprint.endDate ? new Date(sprint.endDate).toLocaleDateString('vi-VN') : 'N/A'}`);
+      doc.text(`Mục tiêu: ${sprint.goal || 'Không có mục tiêu cụ thể'}`);
+      doc.moveDown(2);
+
+      doc.fontSize(18).fillColor('#0052CC').text('Danh sách User Stories', { underline: true });
+      doc.moveDown();
+
+      if (sprint.stories && sprint.stories.length > 0) {
+        sprint.stories.forEach((s, index) => {
+          doc.fontSize(14).fillColor('#172B4D').text(`${index + 1}. ${s.title}`);
+          doc.fontSize(11).fillColor('#6B778C')
+             .text(`   Trạng thái: ${s.status} | Điểm: ${s.storyPoints || 0}`)
+             .text(`   Người thực hiện: ${s.assignee?.fullName || 'Chưa gán'}`);
+          doc.moveDown(0.5);
+        });
+      } else {
+        doc.fontSize(12).text('Sprint này chưa có User Story nào.');
+      }
+
+      doc.end();
+      return;
+    }
+
+    // Default: JSON
+    res.json(sprint);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Lỗi xuất báo cáo" });
   }
 });
 
@@ -710,7 +1008,7 @@ app.patch("/api/project/:projectId/members/:userId/role", authMiddleware, async 
   }
 });
 
-// US-042: KICK THÀNH VIÊN KHỎI DỰ ÁN (Chỉ PO)
+// US-042: XÓA THÀNH VIÊN KHỎI DỰ ÁN (Chỉ PO)
 app.delete("/api/project/:projectId/members/:userId", authMiddleware, async (req, res) => {
   const { projectId, userId } = req.params;
   const requesterId = req.user.userId;
@@ -721,12 +1019,18 @@ app.delete("/api/project/:projectId/members/:userId", authMiddleware, async (req
     });
 
     if (!requester || requester.role !== "PO") {
-      return res.status(403).json({ error: "Chỉ Product Owner (PO) mới có quyền kick thành viên!" });
+      return res.status(403).json({ error: "Chỉ Product Owner (PO) mới có quyền xóa thành viên!" });
     }
 
     if (requesterId === userId) {
-      return res.status(400).json({ error: "Bạn không thể tự kick chính mình khỏi dự án!" });
+      return res.status(400).json({ error: "Bạn không thể tự xóa chính mình khỏi dự án!" });
     }
+
+    // Lấy thông tin dự án để đưa vào thông báo
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: { name: true }
+    });
 
     // Xóa record member
     await prisma.projectMember.delete({
@@ -739,9 +1043,81 @@ app.delete("/api/project/:projectId/members/:userId", authMiddleware, async (req
       data: { assigneeId: null }
     });
 
-    res.json({ message: "Đã xóa thành viên khỏi dự án." });
+    // Unassign all tasks assigned to this user in this project
+    // Tìm các story trong project để unassign task thuộc các story đó
+    const projectStories = await prisma.userStory.findMany({
+      where: { projectId },
+      select: { id: true }
+    });
+    const storyIds = projectStories.map(s => s.id);
+
+    await prisma.task.updateMany({
+      where: { storyId: { in: storyIds }, assigneeId: userId },
+      data: { assigneeId: null }
+    });
+
+    // Tạo thông báo cho người bị xóa
+    await prisma.notification.create({
+      data: {
+        userId,
+        content: `Bạn đã bị xóa khỏi dự án vì không còn tham gia`,
+        type: "KICKED"
+      }
+    });
+
+    res.json({ message: "Đã xóa thành viên khỏi dự án và gửi thông báo." });
   } catch (err) {
-    res.status(500).json({ error: "Lỗi khi kick thành viên: " + err.message });
+    res.status(500).json({ error: "Lỗi khi xóa thành viên: " + err.message });
+  }
+});
+
+// XÓA DỰ ÁN (Chỉ PO)
+app.delete("/api/project/:projectId", authMiddleware, async (req, res) => {
+  const { projectId } = req.params;
+  const userId = req.user.userId;
+
+  try {
+    // 1. Kiểm tra quyền PO
+    const member = await prisma.projectMember.findUnique({
+      where: { userId_projectId: { userId, projectId } },
+    });
+
+    if (!member || member.role !== "PO") {
+      return res.status(403).json({ error: "Chỉ Product Owner (PO) mới có quyền xóa dự án!" });
+    }
+
+    // 2. Thực hiện xóa toàn bộ dữ liệu liên quan trong transaction
+    await prisma.$transaction(async (tx) => {
+      // Vì schema có nhiều quan hệ không cascade, ta xóa thủ công theo thứ tự
+      
+      // Xóa Daily Standups
+      await tx.dailyStandup.deleteMany({ where: { projectId } });
+
+      // Xóa Sprints
+      await tx.sprint.deleteMany({ where: { projectId } });
+
+      // Xóa User Stories (Các Tasks, Comments, Attachments của story sẽ tự động xóa nếu có onDelete: Cascade)
+      // Nhưng để chắc chắn và xử lý các quan hệ trung gian, ta xóa từ ngọn
+      const stories = await tx.userStory.findMany({ where: { projectId }, select: { id: true } });
+      const storyIds = stories.map(s => s.id);
+
+      // Xóa Tasks liên quan
+      await tx.task.deleteMany({ where: { storyId: { in: storyIds } } });
+      
+      // Xóa User Stories
+      await tx.userStory.deleteMany({ where: { projectId } });
+
+      // Xóa Project Members
+      await tx.projectMember.deleteMany({ where: { projectId } });
+
+      // Xóa Project
+      await tx.project.delete({ where: { id: projectId } });
+    });
+
+    res.json({ message: "Dự án đã được xóa vĩnh viễn." });
+  } catch (err) {
+    console.error("Lỗi xóa dự án:", err);
+    res.status(500).json({ error: "Lỗi khi xóa dự án: " + err.message });
   }
 });
 
@@ -890,9 +1266,40 @@ app.post("/api/tasks/:taskId/comments", authMiddleware, async (req, res) => {
     res.status(500).json({ error: "Lỗi khi lưu bình luận cho Task" });
   }
 });
+// === NOTIFICATION API ===
+
+// Lấy danh sách thông báo
+app.get("/api/notifications", authMiddleware, async (req, res) => {
+  try {
+    const notifications = await prisma.notification.findMany({
+      where: { userId: req.user.userId },
+      orderBy: { createdAt: "desc" },
+      take: 20
+    });
+    res.json(notifications);
+  } catch (err) {
+    res.status(500).json({ error: "Lỗi lấy thông báo" });
+  }
+});
+
+// Đánh dấu đã đọc
+app.patch("/api/notifications/:id/read", authMiddleware, async (req, res) => {
+  try {
+    await prisma.notification.update({
+      where: { id: req.params.id, userId: req.user.userId },
+      data: { isRead: true }
+    });
+    res.json({ message: "Đã đánh dấu đã đọc" });
+  } catch (err) {
+    res.status(500).json({ error: "Lỗi cập nhật thông báo" });
+  }
+});
 // Lắng nghe cổng
 const PORT = process.env.PORT || 5001;
-app.listen(PORT, '0.0.0.0', () => {
+const server = http.createServer(app);
+initSocket(server, prisma);
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Server chạy tại http://localhost:${PORT}`);
   console.log(`✅ Server mạng tại http://0.0.0.0:${PORT}`);
+  console.log(`🔌 Socket.io đã sẵn sàng`);
 });

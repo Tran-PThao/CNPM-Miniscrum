@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortableUserStoryCard } from "./SortableUserStoryCard";
+import useSocket from '../hooks/useSocket';
 import api from '../services/api';
 
 export default function ProductBacklog({

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import api from '../services/api';
+import api, { deleteProject } from '../services/api';
 
 const ROLES = ['PO', 'SM', 'MEMBER'];
 const ROLE_STYLE = {
@@ -90,7 +90,7 @@ export default function ManageMembers() {
   };
 
   const handleKick = async (userId, userName) => {
-    if (!window.confirm(`Bạn có chắc chắn muốn kick ${userName} khỏi dự án? Mọi task đang gán cho người này sẽ trở về trạng thái 'Chưa gán'.`)) return;
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa ${userName} khỏi dự án? Mọi task đang gán cho người này sẽ trở về trạng thái 'Chưa gán'.`)) return;
     setError(null); setSuccess(null); setUpdatingId(userId);
     try {
       await api.delete(`/project/${projectId}/members/${userId}`);
@@ -98,13 +98,31 @@ export default function ManageMembers() {
       setMembers(prev => prev.filter(m => m.userId !== userId));
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
-      setError(err.response?.data?.error || 'Lỗi khi kick thành viên.');
+      setError(err.response?.data?.error || 'Lỗi khi xóa thành viên.');
     } finally {
       setUpdatingId(null);
     }
   };
 
+  const handleDeleteProject = async () => {
+    const confirm1 = window.confirm("CẢNH BÁO: Hành động này sẽ xóa vĩnh viễn dự án và toàn bộ dữ liệu liên quan. Bạn có chắc chắn muốn tiếp tục?");
+    if (!confirm1) return;
+
+    const confirm2 = window.confirm("Xác nhận lần cuối: Bạn thực sự muốn XÓA VĨNH VIỄN dự án này?");
+    if (!confirm2) return;
+
+    try {
+      await deleteProject(projectId);
+      alert("Dự án đã được xóa thành công.");
+      navigate("/dashboard");
+    } catch (err) {
+      setError(err.response?.data?.error || 'Lỗi khi xóa dự án.');
+    }
+  };
+
+
   const currentMember = members.find(m => m.userId === currentUser.id);
+  const isPO = currentMember?.role === 'PO';
   const isManagement = currentMember?.role === 'PO' || currentMember?.role === 'SM';
 
   const avatarColor = (name = "U") => {
@@ -136,7 +154,7 @@ export default function ManageMembers() {
             <div className="flex-1">
               <h1 className="text-3xl font-extrabold text-on-surface tracking-tighter mb-1">Thành viên Dự án</h1>
               <p className="text-sm text-on-surface-variant font-medium">
-                {isManagement ? 'Bạn là Quản trị viên (PO/SM) — có quyền thay đổi vai trò và mời thành viên.' : 'Bạn đang xem danh sách thành viên dự án.'}
+                {isPO ? 'Bạn là Product Owner (PO) — có quyền thay đổi vai trò và xóa thành viên.' : isManagement ? 'Bạn là Scrum Master (SM) — có quyền thay đổi vai trò và mời thành viên.' : 'Bạn đang xem danh sách thành viên dự án.'}
               </p>
             </div>
             <div className="bg-primary/5 px-4 py-3 rounded-2xl flex flex-col items-center min-w-[100px]">
@@ -246,11 +264,11 @@ export default function ManageMembers() {
                         </div>
                       )}
 
-                      {isManagement && member.userId !== currentUser.id && (
+                      {isPO && member.userId !== currentUser.id && (
                         <button 
                           onClick={() => handleKick(member.userId, member.user.fullName)}
                           className="p-2 text-error hover:bg-error/10 rounded-xl transition-all"
-                          title="Kick thành viên"
+                          title="Xóa thành viên"
                         >
                           <span className="material-symbols-outlined text-lg">person_remove</span>
                         </button>
@@ -280,6 +298,30 @@ export default function ManageMembers() {
             )}
           </div>
         </div>
+
+        {/* Danger Zone - Only for PO */}
+        {isPO && (
+          <div className="mt-12 bg-white rounded-[2.5rem] p-8 shadow-2xl shadow-error/5 border border-error/10 animate-in fade-in slide-in-from-bottom-8 duration-700">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div>
+                <h3 className="text-xl font-black text-error mb-2 flex items-center gap-2">
+                  <span className="material-symbols-outlined">warning</span>
+                  Danger Zone
+                </h3>
+                <p className="text-sm text-on-surface-variant font-medium">
+                  Xóa vĩnh viễn dự án này và toàn bộ dữ liệu liên quan. Hành động này không thể hoàn tác.
+                </p>
+              </div>
+              <button
+                onClick={handleDeleteProject}
+                className="px-8 py-4 bg-error/10 text-error rounded-2xl font-black text-sm border border-error/20 hover:bg-error hover:text-white transition-all flex items-center justify-center gap-3 shadow-lg shadow-error/10"
+              >
+                <span className="material-symbols-outlined">delete_forever</span>
+                XÓA DỰ ÁN
+              </button>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

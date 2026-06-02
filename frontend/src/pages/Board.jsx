@@ -2,12 +2,23 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import useSocket from "../hooks/useSocket";
 import MainLayout from "../components/MainLayout";
 import BoardTopBar from "../components/BoardTopBar";
 import KanbanColumn from "../components/KanbanColumn";
 import FAB from "../components/FAB";
 import api, { getStoriesByProject, updateUserStory } from "../services/api";
 import CreateStoryModal from "../components/CreateStoryModal";
+
+import { 
+  DndContext, 
+  closestCorners, 
+  PointerSensor, 
+  MouseSensor, 
+  TouchSensor, 
+  useSensor, 
+  useSensors 
+} from '@dnd-kit/core';
 
 export default function BoardPage() {
   const { projectId } = useParams();
@@ -18,6 +29,43 @@ export default function BoardPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
+
+  // Cấu hình Sensors cho Drag & Drop
+  const sensors = useSensors(
+    useSensor(MouseSensor),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 250, tolerance: 5 },
+    }),
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 5 },
+    })
+  );
+
+  const handleDragEnd = async (event) => {
+    const { active, over } = event;
+    if (!over) return;
+
+    const activeId = active.id;
+    const overId = over.id;
+
+    // Xác định status mục tiêu từ overId (format: column-{STATUS})
+    if (overId.startsWith('column-')) {
+      const newStatus = overId.replace('column-', '');
+      const story = stories.find(s => s.id === activeId);
+      
+      if (story && story.status !== newStatus) {
+        // Optimistic UI Update
+        setStories(prev => prev.map(s => s.id === activeId ? { ...s, status: newStatus } : s));
+        
+        try {
+          await handleStatusUpdate(activeId, newStatus);
+        } catch (err) {
+          // loadStories will handle recovery if handleStatusUpdate fails or I can manually rollback
+          loadStories();
+        }
+      }
+    }
+  };
 
   useEffect(() => {
     if (!projectId) {
@@ -47,6 +95,8 @@ export default function BoardPage() {
       console.error("Lỗi khi tải bảng Kanban:", err);
     }
   };
+
+  useSocket(projectId, loadStories);
 
   const handleStatusUpdate = async (storyId, newStatus) => {
     try {
@@ -123,14 +173,20 @@ export default function BoardPage() {
     >
       <div className="h-full">
         {/* Kanban board */}
-        <div className="flex-1 overflow-x-auto pb-6">
-          <div className="flex h-full gap-4 md:gap-8 min-w-[1200px] md:min-w-0 md:grid md:grid-cols-4">
-            <KanbanColumn title="To Do" status="TODO" items={todoCards} onUpdateItem={handleStatusUpdate} onAssign={handleAssign} onEdit={handleEditStory} onDelete={handleDeleteStory} userRole={userRole} />
-            <KanbanColumn title="In Progress" status="IN_PROGRESS" items={inProgressCards} onUpdateItem={handleStatusUpdate} onAssign={handleAssign} onEdit={handleEditStory} onDelete={handleDeleteStory} userRole={userRole} />
-            <KanbanColumn title="Done" status="DONE" items={doneCards} onUpdateItem={handleStatusUpdate} onAssign={handleAssign} onEdit={handleEditStory} onDelete={handleDeleteStory} userRole={userRole} />
-            <KanbanColumn title="Rejected" status="REJECTED" items={rejectedCards} onUpdateItem={handleStatusUpdate} onAssign={handleAssign} onEdit={handleEditStory} onDelete={handleDeleteStory} userRole={userRole} />
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCorners}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="flex-1 overflow-x-auto pb-6">
+            <div className="flex h-full gap-4 md:gap-8 min-w-[1200px] md:min-w-0 md:grid md:grid-cols-4">
+              <KanbanColumn title="To Do" status="TODO" items={todoCards} onUpdateItem={handleStatusUpdate} onAssign={handleAssign} onEdit={handleEditStory} onDelete={handleDeleteStory} userRole={userRole} />
+              <KanbanColumn title="In Progress" status="IN_PROGRESS" items={inProgressCards} onUpdateItem={handleStatusUpdate} onAssign={handleAssign} onEdit={handleEditStory} onDelete={handleDeleteStory} userRole={userRole} />
+              <KanbanColumn title="Done" status="DONE" items={doneCards} onUpdateItem={handleStatusUpdate} onAssign={handleAssign} onEdit={handleEditStory} onDelete={handleDeleteStory} userRole={userRole} />
+              <KanbanColumn title="Rejected" status="REJECTED" items={rejectedCards} onUpdateItem={handleStatusUpdate} onAssign={handleAssign} onEdit={handleEditStory} onDelete={handleDeleteStory} userRole={userRole} />
+            </div>
           </div>
-        </div>
+        </DndContext>
       </div>
 
       <CreateStoryModal 

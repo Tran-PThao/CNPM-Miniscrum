@@ -2,33 +2,29 @@ import { useState, useEffect } from "react";
 import { useSidebar } from "../context/SidebarContext";
 import { useNavigate } from "react-router-dom";
 import { getInvitations, respondToInvitation } from "../services/api";
-
+import NotificationBell from "./NotificationBell";
+import useNotifications from '../hooks/useNotifications.jsx';
 export default function TopBar() {
   const { toggle } = useSidebar();
   const navigate = useNavigate();
   const [showMenu, setShowMenu] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
   const [invitations, setInvitations] = useState([]);
   
   const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
 
   useEffect(() => {
-    fetchInvitations();
-    const timer = setInterval(fetchInvitations, 60000);
+    fetchData();
+    const timer = setInterval(fetchData, 60000);
 
-    // Tự động mở thông báo nếu có query param ?showNotifications=true
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("showNotifications") === "true") {
-      setShowNotifications(true);
-    }
+    // Tự động mở thông báo được xử lý trong NotificationBell
 
     return () => clearInterval(timer);
   }, [window.location.search]);
 
-  const fetchInvitations = async () => {
+  const fetchData = async () => {
     try {
-      const res = await getInvitations();
-      setInvitations(res.data);
+      const invRes = await getInvitations();
+      setInvitations(invRes.data);
     } catch (err) {
       console.error("Lỗi lấy thông báo:", err);
     }
@@ -37,7 +33,7 @@ export default function TopBar() {
   const handleRespond = async (id, action) => {
     try {
       await respondToInvitation(id, action);
-      await fetchInvitations();
+      await fetchData();
       if (action === "ACCEPT") {
         window.location.href = "/dashboard";
       }
@@ -45,6 +41,8 @@ export default function TopBar() {
       alert("Lỗi khi xử lý lời mời");
     }
   };
+
+
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -81,78 +79,7 @@ export default function TopBar() {
           <span className="material-symbols-outlined">timer</span>
         </button>
 
-        <div className="relative">
-          <button 
-            onClick={() => setShowNotifications(!showNotifications)}
-            className="p-2 text-[#44474e] hover:bg-[#f1f3f8] rounded-full transition-colors relative"
-          >
-            <span className="material-symbols-outlined">notifications</span>
-            {invitations.length > 0 && (
-              <span className="absolute top-2 right-2 min-w-[14px] h-[14px] px-1 bg-error text-white text-[8px] font-bold rounded-full flex items-center justify-center animate-bounce">
-                {invitations.length}
-              </span>
-            )}
-          </button>
-
-          {/* Notifications Dropdown */}
-          {showNotifications && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)}></div>
-              <div className="absolute right-0 mt-3 w-80 bg-white rounded-3xl shadow-2xl border border-outline-variant/10 overflow-hidden z-50 animate-in fade-in slide-in-from-top-3 duration-200">
-                <div className="px-6 py-4 border-b border-outline-variant/10 bg-surface-container-low flex items-center justify-between">
-                  <h4 className="text-sm font-black text-on-surface uppercase tracking-wider">Thông báo</h4>
-                  <span className="text-[10px] font-bold px-2 py-0.5 bg-primary/10 text-primary rounded-full">
-                    {invitations.length} Mới
-                  </span>
-                </div>
-
-                <div className="max-h-96 overflow-y-auto">
-                  {invitations.length > 0 ? (
-                    invitations.map(inv => (
-                      <div key={inv.id} className="p-4 border-b border-outline-variant/5 hover:bg-surface-container-lowest transition-colors group">
-                        <div className="flex items-start gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
-                            <span className="material-symbols-outlined">group_add</span>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs text-on-surface leading-snug">
-                              Bạn đã được mời tham gia dự án <strong>{inv.project.name}</strong> ({inv.project.key}) với vai trò <strong>{inv.role}</strong>.
-                            </p>
-                            <div className="flex gap-2 mt-3">
-                              <button 
-                                onClick={() => handleRespond(inv.id, "ACCEPT")}
-                                className="flex-1 py-1.5 bg-primary text-on-primary rounded-lg text-[11px] font-bold hover:opacity-90 transition-all shadow-sm"
-                              >
-                                Chấp nhận
-                              </button>
-                              <button 
-                                onClick={() => handleRespond(inv.id, "DECLINE")}
-                                className="flex-1 py-1.5 bg-surface-container-high text-on-surface-variant rounded-lg text-[11px] font-bold hover:bg-error/10 hover:text-error transition-all"
-                              >
-                                Từ chối
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="py-12 flex flex-col items-center justify-center text-on-surface-variant/30 italic">
-                      <span className="material-symbols-outlined text-4xl mb-2 opacity-20">notifications_off</span>
-                      <p className="text-xs">Không có thông báo mới nào</p>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="px-6 py-3 border-t border-outline-variant/10 bg-surface-container-lowest text-center">
-                  <button className="text-[10px] font-black text-primary uppercase tracking-widest hover:underline">
-                    Xem tất cả hoạt động
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
+        <NotificationBell invitations={invitations} onRespondInvite={handleRespond} />
 
         <div className="h-8 w-[1px] bg-outline-variant mx-1 sm:mx-2"></div>
 

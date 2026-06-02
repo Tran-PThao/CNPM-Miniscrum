@@ -19,6 +19,8 @@ model User {
   assignedTasks   Task[]          @relation("AssignedTasks")
   standups        DailyStandup[]
   comments        Comment[]
+  notificationsReceived Notification[] @relation("ReceivedNotifications")
+  notificationsSent     Notification[] @relation("SentNotifications")
 }
 
 model Project {
@@ -75,6 +77,18 @@ model UserStory {
   sprint       Sprint? @relation(fields: [sprintId], references: [id])
   tasks        Task[]
   comments     Comment[]
+  updatedAt    DateTime?   @updatedAt
+  statusHistory UserStoryStatusHistory[]
+}
+
+model UserStoryStatusHistory {
+  id          String    @id @default(cuid())
+  storyId     String
+  userStory   UserStory @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  status      String
+  changedAt   DateTime  @default(now())
+
+  @@index([storyId])
 }
 
 model Task {
@@ -113,4 +127,19 @@ model Comment {
   userStory   UserStory @relation(fields: [userStoryId], references: [id], onDelete: Cascade)
   userId      String
   user        User      @relation(fields: [userId], references: [id])
+}
+
+model Notification {
+  id          String   @id @default(cuid())
+  userId      String
+  senderId    String?
+  content     String
+  type        String   @default("SYSTEM") // SYSTEM, KICKED, TASK_CHANGED, v.v..
+  taskTitle   String?
+  link        String?
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  
+  user        User     @relation("ReceivedNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  sender      User?    @relation("SentNotifications", fields: [senderId], references: [id], onDelete: SetNull)
 }
