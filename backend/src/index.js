@@ -891,7 +891,7 @@ app.post("/api/tasks/:taskId/comments", authMiddleware, async (req, res) => {
   }
 });
 // Lắng nghe cổng
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Server chạy tại http://localhost:${PORT}`);
   console.log(`✅ Server mạng tại http://0.0.0.0:${PORT}`);

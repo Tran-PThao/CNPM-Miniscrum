@@ -15,7 +15,7 @@ function CreateProject() {
     setLoading(true); setMessage(""); setError("");
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`http://${window.location.hostname}:5000/api/project`, {
+      const res = await fetch(`http://${window.location.hostname}:5001/api/project`, {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",

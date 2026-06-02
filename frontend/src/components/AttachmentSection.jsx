@@ -67,7 +67,7 @@ export default function AttachmentSection({ entityId, entityType = 'task' }) {
                 {getFileIcon(file.fileType)}
               </span>
               <div className="flex flex-col overflow-hidden">
-                <a href={`http://localhost:5000${file.fileUrl}`} target="_blank" rel="noreferrer" 
+                <a href={`http://localhost:5001${file.fileUrl}`} target="_blank" rel="noreferrer" 
                    className="text-[12px] font-medium text-on-surface truncate hover:text-primary transition-colors">
                   {file.fileName}
                 </a>
