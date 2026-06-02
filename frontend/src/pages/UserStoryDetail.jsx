@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import StoryContent from "../components/StoryContent";
 import StoryMetaSidebar from "../components/StoryMetaSidebar";
-import { getUserStory } from "../services/api";
+import { getUserStory, updateUserStory } from "../services/api"; // Thêm updateUserStory
 
 export default function UserStoryDetail() {
   const navigate = useNavigate();
@@ -17,6 +17,16 @@ export default function UserStoryDetail() {
   }, [id, navigate]);
 
   const handleClose = () => navigate(-1);
+
+  const handleStatusChange = async (newStatus) => {
+    try {
+      const res = await updateUserStory(id, { status: newStatus });
+      setStory(res.data.story || res.data); // Backend có thể trả về { story: ... } hoặc trực tiếp story
+    } catch (err) {
+      console.error("Lỗi cập nhật trạng thái:", err);
+      alert(err.response?.data?.error || "Không thể cập nhật trạng thái");
+    }
+  };
 
   if (!story) return null;
 
@@ -66,6 +76,7 @@ export default function UserStoryDetail() {
               created="Mới tạo"
               updated="Mới nhất"
               sprintProgress={story.status === 'DONE' ? 100 : story.status === 'IN_PROGRESS' ? 50 : 0}
+              onStatusChange={handleStatusChange}
             />
           </div>
         </div>

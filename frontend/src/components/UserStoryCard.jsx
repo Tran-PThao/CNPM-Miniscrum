@@ -29,7 +29,9 @@ export default function UserStoryCard({
   moveIcon = "arrow_upward",
   moveTitle = "Đưa vào Sprint",
   isSelected = false,
-  onToggleSelect
+  onToggleSelect,
+  onAddTask,
+  comments = []
 }) {
   const isSprint = variant === "sprint";
   const isManagement = userRole === "PO" || userRole === "SM";
@@ -93,6 +95,18 @@ export default function UserStoryCard({
               <span>{storyPoints || 0}</span>
             </div>
 
+            {/* US-045: Comments */}
+            {comments.length > 0 && (
+              <div 
+                className="flex items-center gap-1 text-primary bg-primary/5 px-2 py-0.5 rounded-lg border border-primary/20 hover:bg-primary/10 transition-colors"
+                title={`${comments.length} bình luận`}
+                onClick={(e) => { e.stopPropagation(); onEdit?.({ id, title, description, priority, storyPoints, assignee, tags, comments }); }}
+              >
+                <span className="material-symbols-outlined text-[14px]">forum</span>
+                <span className="text-[10px] font-bold">{comments.length}</span>
+              </div>
+            )}
+
             {/* Actions + Assignee */}
             <div className="flex items-center gap-2">
               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
@@ -114,6 +128,15 @@ export default function UserStoryCard({
                 {isManagement && onMove && (
                   <button onClick={(e) => { e.stopPropagation(); onMove(id); }} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-primary/10 text-primary transition-all" title={moveTitle}>
                     <span className="material-symbols-outlined text-[18px]">{moveIcon}</span>
+                  </button>
+                )}
+                {onAddTask && (
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); onAddTask(id, title); }} 
+                    className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-primary/20 text-primary transition-all border border-primary/20" 
+                    title="Tạo Task mới"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">add_task</span>
                   </button>
                 )}
                 {!isManagement && (
@@ -150,7 +173,6 @@ export default function UserStoryCard({
     >
       {/* Header: ID + Title + Move Button */}
       <div className="flex items-start gap-3">
-        {/* Checkbox for bulk select */}
         {onToggleSelect && (
           <input 
             type="checkbox"
@@ -163,7 +185,6 @@ export default function UserStoryCard({
           />
         )}
 
-        {/* Move icon cho Management */}
         {isManagement && onMove && (
           <button 
             onClick={(e) => { e.stopPropagation(); onMove(id); }}
@@ -255,6 +276,18 @@ export default function UserStoryCard({
             <span className="material-symbols-outlined text-base">star</span>
             {storyPoints || 0}
           </div>
+
+          {/* US-045: Comments */}
+          {comments.length > 0 && (
+            <div 
+              className="flex items-center gap-1 text-primary bg-primary/5 px-3 py-1 rounded-lg border border-primary/20 hover:bg-primary/10 transition-colors cursor-pointer"
+              title={`${comments.length} bình luận`}
+              onClick={(e) => { e.stopPropagation(); onEdit?.({ id, title, description, priority, storyPoints, assignee, tags, comments }); }}
+            >
+              <span className="material-symbols-outlined text-base">forum</span>
+              <span className="text-sm font-bold">{comments.length}</span>
+            </div>
+          )}
         </div>
 
         {assignee?.fullName ? (

@@ -1,7 +1,7 @@
 import { useDroppable } from '@dnd-kit/core';
 import UserStoryCard from "./UserStoryCard";
 
-export default function SprintSection({ sprint, stories = [], onMoveToBacklog, onAssign, onEdit, onDelete, onStatusChange, userRole, selectedStories = [], onToggleSelect, onSelectAll }) {
+export default function SprintSection({ sprint, stories = [], onMoveToBacklog, onAssign, onEdit, onDelete, onStatusChange, onStartClick, userRole, selectedStories = [], onToggleSelect, onSelectAll, onAddTask }) {
   const isManagement = userRole === "PO" || userRole === "SM";
   const { setNodeRef, isOver } = useDroppable({
     id: `sprint-${sprint.id}`,
@@ -12,8 +12,12 @@ export default function SprintSection({ sprint, stories = [], onMoveToBacklog, o
     : 0;
 
   const handleStartSprint = () => {
-    if (window.confirm(`Bạn có chắc muốn bắt đầu ${sprint.name}?`)) {
-      onStatusChange(sprint.id, 'ACTIVE');
+    if (onStartClick) {
+      onStartClick(sprint, stories);
+    } else {
+      if (window.confirm(`Bạn có chắc muốn bắt đầu ${sprint.name}?`)) {
+        onStatusChange(sprint.id, 'ACTIVE');
+      }
     }
   };
 
@@ -74,7 +78,7 @@ export default function SprintSection({ sprint, stories = [], onMoveToBacklog, o
           </div>
           {isManagement && (
             <>
-              {sprint.status === 'PLANNED' && (
+              {sprint.status === 'PLANNED' && userRole === 'SM' && (
                 <button 
                   onClick={handleStartSprint}
                   className="px-4 py-1.5 bg-primary text-on-primary text-xs font-black uppercase tracking-widest rounded-full hover:scale-105 transition-all shadow-md shadow-primary/20 flex items-center gap-1"
@@ -121,6 +125,7 @@ export default function SprintSection({ sprint, stories = [], onMoveToBacklog, o
               moveTitle="Đẩy về Backlog"
               isSelected={selectedStories.includes(story.id)}
               onToggleSelect={onToggleSelect}
+              onAddTask={onAddTask}
             />
           ))
         ) : (

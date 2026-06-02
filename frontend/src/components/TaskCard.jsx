@@ -2,7 +2,19 @@ import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-export function TaskCard({ id, title, description, status, assignee, assigneeId, members = [], onUpdate, onDelete, onAssign }) {
+export function TaskCard({ 
+  id, 
+  title, 
+  description, 
+  status, 
+  assignee, 
+  assigneeId, 
+  dueDate,
+  members = [], 
+  onUpdate, 
+  onDelete, 
+  onAssign 
+}) {
   const {
     attributes,
     listeners,
@@ -17,6 +29,19 @@ export function TaskCard({ id, title, description, status, assignee, assigneeId,
     transition,
     opacity: isDragging ? 0.5 : 1,
   };
+
+  const cleanId = id.replace('task-', '');
+
+  const handleAssigneeChange = (e) => {
+    const newAssigneeId = e.target.value === 'unassigned' ? null : e.target.value;
+    onUpdate({ assigneeId: newAssigneeId });
+  };
+
+  const handleDateChange = (e) => {
+    onUpdate({ dueDate: e.target.value || null });
+  };
+
+  const isOverdue = dueDate && new Date(dueDate) < new Date(new Date().setHours(0,0,0,0)) && status !== 'DONE';
 
   return (
     <div
@@ -33,7 +58,7 @@ export function TaskCard({ id, title, description, status, assignee, assigneeId,
         </h5>
         {onDelete && (
           <button
-            onClick={(e) => { e.stopPropagation(); onDelete(id); }}
+            onClick={(e) => { e.stopPropagation(); onDelete(cleanId); }}
             className="opacity-0 group-hover:opacity-100 p-1 hover:bg-error/10 text-error rounded transition-opacity"
           >
             <span className="material-symbols-outlined text-[14px]">delete</span>
@@ -46,6 +71,31 @@ export function TaskCard({ id, title, description, status, assignee, assigneeId,
           {description}
         </p>
       )}
+
+      {/* Deadline display */}
+      <div className="mt-2 flex items-center gap-1.5 px-0.5">
+        <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold border transition-colors relative transition-all
+          ${isOverdue 
+            ? 'bg-error/10 text-error border-error/20' 
+            : dueDate 
+              ? 'bg-secondary/5 text-secondary border-secondary/10' 
+              : 'text-outline-variant border-transparent opacity-0 group-hover:opacity-100 hover:bg-surface-container'
+          }`}
+        >
+          <span className="material-symbols-outlined text-[12px]">
+            {isOverdue ? 'event_busy' : 'calendar_today'}
+          </span>
+          {dueDate ? new Date(dueDate).toLocaleDateString('vi-VN') : 'Đặt hạn chót'}
+          
+          <input
+            type="date"
+            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+            value={dueDate ? new Date(dueDate).toISOString().split('T')[0] : ''}
+            onChange={handleDateChange}
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      </div>
 
       <div className="mt-2 flex justify-between items-center border-t border-outline-variant/10 pt-2">
         <div className="text-[9px] font-bold text-outline-variant uppercase tracking-wider">

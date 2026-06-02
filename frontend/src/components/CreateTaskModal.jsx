@@ -10,11 +10,12 @@ export default function CreateTaskModal({
   const [form, setForm] = useState({
     title: '',
     description: '',
+    dueDate: '',
   });
 
   useEffect(() => {
     if (isOpen) {
-      setForm({ title: '', description: '' });
+      setForm({ title: '', description: '', dueDate: '' });
     }
   }, [isOpen]);
 
@@ -68,6 +69,21 @@ export default function CreateTaskModal({
               placeholder="Chi tiết công việc cần làm..."
               value={form.description}
               onChange={e => setForm({ ...form, description: e.target.value })}
+              disabled={loading}
+            />
+          </div>
+
+          {/* Deadline */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-bold text-on-surface-variant flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-[18px]">calendar_today</span>
+              Hạn chót
+            </label>
+            <input
+              type="date"
+              className="w-full px-4 py-3 rounded-xl border border-outline-variant bg-surface-container-lowest focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none text-sm"
+              value={form.dueDate}
+              onChange={e => setForm({ ...form, dueDate: e.target.value })}
               disabled={loading}
             />
           </div>

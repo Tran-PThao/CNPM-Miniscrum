@@ -28,7 +28,7 @@ npx prisma db push
 # Tạo file .env trong thư mục backend/ với nội dung sau:
 DATABASE_URL="file:./dev.db"
 JWT_SECRET="supersecretkey2026"
-PORT=5000
+PORT=5001
 
 # 2.Mở Terminal tại thư mục frontend/
 cd ../frontend

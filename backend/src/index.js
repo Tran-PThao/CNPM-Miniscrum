@@ -29,6 +29,7 @@ const authMiddleware = (req, res, next) => {
   }
 };
 
+
 app.use('/api/user-stories', userstoryRoutes);
 app.use('/api/standups', authMiddleware, standupRoutes);
 
@@ -421,12 +422,53 @@ app.get("/api/userstory/:id", async (req, res) => {
   try {
     const story = await prisma.userStory.findUnique({
       where: { id: req.params.id },
-      include: { project: true, assignee: { select: { fullName: true, email: true } } },
+      include: { 
+        project: true, 
+        assignee: { select: { fullName: true, email: true } },
+        comments: {
+          include: { user: { select: { fullName: true, email: true } } },
+          orderBy: { createdAt: "asc" }
+        }
+      },
     });
     if (!story) return res.status(404).json({ error: "Không tìm thấy User Story" });
     res.json(story);
   } catch (err) {
     res.status(500).json({ error: "Lỗi server" });
+  }
+});
+
+// US-045: LẤY BÌNH LUẬN CỦA USER STORY
+app.get("/api/userstory/:id/comments", async (req, res) => {
+  try {
+    const comments = await prisma.comment.findMany({
+      where: { userStoryId: req.params.id },
+      include: { user: { select: { fullName: true, email: true } } },
+      orderBy: { createdAt: "asc" }
+    });
+    res.json(comments);
+  } catch (err) {
+    res.status(500).json({ error: "Lỗi lấy bình luận" });
+  }
+});
+
+// US-045: TẠO BÌNH LUẬN MỚI
+app.post("/api/userstory/:id/comments", authMiddleware, async (req, res) => {
+  const { content } = req.body;
+  if (!content) return res.status(400).json({ error: "Nội dung bình luận không được để trống" });
+  
+  try {
+    const comment = await prisma.comment.create({
+      data: {
+        content,
+        userStoryId: req.params.id,
+        userId: req.user.userId
+      },
+      include: { user: { select: { fullName: true, email: true } } }
+    });
+    res.status(201).json(comment);
+  } catch (err) {
+    res.status(500).json({ error: "Lỗi khi lưu bình luận" });
   }
 });
 
@@ -442,6 +484,7 @@ app.get("/api/project/:projectId/userstories", async (req, res) => {
       ],
       include: { 
         assignee: { select: { fullName: true, email: true } },
+        comments: { select: { id: true } },
         tasks: { 
           orderBy: { createdAt: "asc" },
           include: { assignee: { select: { id: true, fullName: true, email: true } } }
@@ -452,8 +495,7 @@ app.get("/api/project/:projectId/userstories", async (req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.json(stories);
   } catch (err) {
-    console.error("Lỗi khi lấy danh sách User Stories chi tiết:", err);
-    res.status(500).json({ error: "Lỗi khi lấy danh sách User Stories", detail: err.message });
+    res.status(500).json({ error: "Lỗi khi lấy danh sách User Stories" });
   }
 });
 
@@ -469,7 +511,12 @@ app.get("/api/project/:projectId/sprints", authMiddleware, async (req, res) => {
       include: { 
         stories: { 
           include: { 
-            tasks: { orderBy: { createdAt: "asc" } } 
+            assignee: { select: { fullName: true, email: true } },
+            comments: { select: { id: true } },
+            tasks: { 
+              include: { assignee: { select: { id: true, fullName: true, email: true } } },
+              orderBy: { createdAt: "asc" } 
+            } 
           } 
         } 
       }
@@ -514,8 +561,11 @@ app.get("/api/sprint/:id", authMiddleware, async (req, res) => {
       include: { 
         stories: { 
           include: { 
-            assignee: { select: { fullName: true } },
-            tasks: { orderBy: { createdAt: "asc" } }
+            assignee: { select: { fullName: true, email: true } },
+            tasks: { 
+              include: { assignee: { select: { id: true, fullName: true, email: true } } },
+              orderBy: { createdAt: "asc" } 
+            }
           } 
         } 
       }
@@ -716,7 +766,7 @@ app.post("/api/project/:projectId/members/seed", async (req, res) => {
 // US-020: TẠO TASK CHO USER STORY
 app.post("/api/userstory/:storyId/tasks", authMiddleware, async (req, res) => {
   const { storyId } = req.params;
-  const { title, description, assigneeId } = req.body;
+  const { title, description, assigneeId, dueDate } = req.body;
   try {
     const task = await prisma.task.create({
       data: {
@@ -725,6 +775,7 @@ app.post("/api/userstory/:storyId/tasks", authMiddleware, async (req, res) => {
         storyId,
         status: "TODO",
         assigneeId: assigneeId || null,
+        dueDate: dueDate ? new Date(dueDate) : null,
       }
     });
     res.status(201).json(task);
@@ -736,7 +787,7 @@ app.post("/api/userstory/:storyId/tasks", authMiddleware, async (req, res) => {
 // US-021: CẬP NHẬT TASK (Status hoặc Details)
 app.patch("/api/tasks/:id", authMiddleware, async (req, res) => {
   const { id } = req.params;
-  const { title, description, status, assigneeId, storyId } = req.body;
+  const { title, description, status, assigneeId, storyId, dueDate } = req.body;
   try {
     const updated = await prisma.task.update({
       where: { id },
@@ -746,6 +797,7 @@ app.patch("/api/tasks/:id", authMiddleware, async (req, res) => {
         status: status !== undefined ? status : undefined,
         assigneeId: assigneeId !== undefined ? assigneeId : undefined,
         storyId: storyId !== undefined ? storyId : undefined,
+        dueDate: dueDate !== undefined ? (dueDate ? new Date(dueDate) : null) : undefined,
       }
     });
     res.json(updated);
@@ -788,6 +840,7 @@ app.get("/api/userstory/:storyId/tasks", authMiddleware, async (req, res) => {
   try {
     const tasks = await prisma.task.findMany({
       where: { storyId },
+      include: { assignee: { select: { id: true, fullName: true, email: true } } },
       orderBy: { createdAt: "asc" }
     });
     res.json(tasks);
@@ -796,8 +849,49 @@ app.get("/api/userstory/:storyId/tasks", authMiddleware, async (req, res) => {
   }
 });
 
+// ==========================================
+// US-046: BÌNH LUẬN TRONG TASK
+// ==========================================
+
+// 1. Lấy danh sách bình luận của Task
+app.get("/api/tasks/:taskId/comments", async (req, res) => {
+  const { taskId } = req.params;
+  try {
+    const comments = await prisma.comment.findMany({
+      where: { taskId: taskId },
+      include: { user: { select: { fullName: true, email: true } } },
+      orderBy: { createdAt: "asc" }
+    });
+    res.json(comments);
+  } catch (err) {
+    res.status(500).json({ error: "Lỗi khi lấy bình luận của Task" });
+  }
+});
+
+// 2. Tạo bình luận mới cho Task
+app.post("/api/tasks/:taskId/comments", authMiddleware, async (req, res) => {
+  const { taskId } = req.params;
+  const { content } = req.body;
+  
+  if (!content) return res.status(400).json({ error: "Nội dung không được để trống" });
+
+  try {
+    const comment = await prisma.comment.create({
+      data: {
+        content,
+        taskId: taskId,
+        userId: req.user.userId // Lấy từ authMiddleware
+      },
+      include: { user: { select: { fullName: true, email: true } } }
+    });
+    res.status(201).json(comment);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Lỗi khi lưu bình luận cho Task" });
+  }
+});
 // Lắng nghe cổng
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Server chạy tại http://localhost:${PORT}`);
   console.log(`✅ Server mạng tại http://0.0.0.0:${PORT}`);

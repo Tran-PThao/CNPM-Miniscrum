@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: `http://${window.location.hostname}:5000/api`,
+  baseURL: `http://${window.location.hostname}:5001/api`,
   headers: { 'Content-Type': 'application/json' },
 });
 
@@ -44,6 +44,10 @@ export const updateTask = (id, data) => api.patch(`/tasks/${id}`, data);
 export const assignTaskByEmail = (id, email) => api.patch(`/tasks/${id}/assign`, { email });
 export const deleteTask = (id) => api.delete(`/tasks/${id}`);
 export const getStoryTasks = (storyId) => api.get(`/userstory/${storyId}/tasks`);
+
+// COMMENTS
+export const getStoryComments = (storyId) => api.get(`/userstory/${storyId}/comments`);
+export const createStoryComment = (storyId, content) => api.post(`/userstory/${storyId}/comments`, { content });
 
 // LỜI MỜI
 export const getInvitations = () => api.get('/invitations');

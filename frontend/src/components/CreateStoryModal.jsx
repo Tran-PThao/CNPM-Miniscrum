@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import CommentSection from './CommentSection';
 
 export default function CreateStoryModal({ 
   isOpen, 
@@ -237,6 +238,11 @@ export default function CreateStoryModal({
               {loading ? 'Đang lưu...' : (isEdit ? 'Lưu thay đổi' : 'Tạo User Story')}
             </button>
           </div>
+
+          {/* US-045: Bình luận */}
+          {isEdit && initialData?.id && (
+            <CommentSection storyId={initialData.id} />
+          )}
         </form>
       </div>
     </div>

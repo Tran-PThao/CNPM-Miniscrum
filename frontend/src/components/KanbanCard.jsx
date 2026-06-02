@@ -1,3 +1,4 @@
+//frontend/src/components/KanbanCard.jsx
 const priorityConfig = {
   HIGH: "bg-error-container text-on-error-container",
   MEDIUM: "bg-tertiary-container text-on-tertiary-container",

@@ -1,5 +1,7 @@
+//frontend/src/pages/Board.jsx
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import MainLayout from "../components/MainLayout";
 import BoardTopBar from "../components/BoardTopBar";
 import KanbanColumn from "../components/KanbanColumn";
@@ -15,6 +17,7 @@ export default function BoardPage() {
   const [editingStory, setEditingStory] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
+  const { user: currentUser } = useAuth();
 
   useEffect(() => {
     if (!projectId) {
@@ -110,6 +113,7 @@ export default function BoardPage() {
   const todoCards = prepareCards('TODO');
   const inProgressCards = prepareCards('IN_PROGRESS');
   const doneCards = prepareCards('DONE');
+  const rejectedCards = prepareCards('REJECTED'); // Thêm dòng này
 
   return (
     <MainLayout 
@@ -120,10 +124,11 @@ export default function BoardPage() {
       <div className="h-full">
         {/* Kanban board */}
         <div className="flex-1 overflow-x-auto pb-6">
-          <div className="flex h-full gap-4 md:gap-8 min-w-[900px] md:min-w-0 md:grid md:grid-cols-3">
+          <div className="flex h-full gap-4 md:gap-8 min-w-[1200px] md:min-w-0 md:grid md:grid-cols-4">
             <KanbanColumn title="To Do" status="TODO" items={todoCards} onUpdateItem={handleStatusUpdate} onAssign={handleAssign} onEdit={handleEditStory} onDelete={handleDeleteStory} userRole={userRole} />
             <KanbanColumn title="In Progress" status="IN_PROGRESS" items={inProgressCards} onUpdateItem={handleStatusUpdate} onAssign={handleAssign} onEdit={handleEditStory} onDelete={handleDeleteStory} userRole={userRole} />
             <KanbanColumn title="Done" status="DONE" items={doneCards} onUpdateItem={handleStatusUpdate} onAssign={handleAssign} onEdit={handleEditStory} onDelete={handleDeleteStory} userRole={userRole} />
+            <KanbanColumn title="Rejected" status="REJECTED" items={rejectedCards} onUpdateItem={handleStatusUpdate} onAssign={handleAssign} onEdit={handleEditStory} onDelete={handleDeleteStory} userRole={userRole} />
           </div>
         </div>
       </div>
@@ -134,6 +139,7 @@ export default function BoardPage() {
         onSubmit={handleModalSubmit}
         loading={isSubmitting}
         initialData={editingStory}
+        currentUser={currentUser}
       />
 
       {/* FAB */}

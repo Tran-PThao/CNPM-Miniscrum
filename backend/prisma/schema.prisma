@@ -18,6 +18,7 @@ model User {
   assignedStories UserStory[]     @relation("AssignedStories")
   assignedTasks   Task[]          @relation("AssignedTasks")
   standups        DailyStandup[]
+  comments        Comment[]
 }
 
 model Project {
@@ -73,6 +74,7 @@ model UserStory {
   project      Project @relation(fields: [projectId], references: [id])
   sprint       Sprint? @relation(fields: [sprintId], references: [id])
   tasks        Task[]
+  comments     Comment[]
 }
 
 model Task {
@@ -84,6 +86,7 @@ model Task {
   userStory   UserStory @relation(fields: [storyId], references: [id], onDelete: Cascade)
   assigneeId  String?
   assignee    User?     @relation("AssignedTasks", fields: [assigneeId], references: [id])
+  dueDate     DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 }
@@ -100,4 +103,14 @@ model DailyStandup {
   project   Project  @relation(fields: [projectId], references: [id])
 
   @@index([projectId, date])
+}
+
+model Comment {
+  id          String    @id @default(cuid())
+  content     String
+  createdAt   DateTime  @default(now())
+  userStoryId String
+  userStory   UserStory @relation(fields: [userStoryId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
 }
