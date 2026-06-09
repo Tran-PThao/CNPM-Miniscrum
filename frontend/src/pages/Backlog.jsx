@@ -71,6 +71,7 @@ export default function Backlog() {
   // Task states
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [taskStory, setTaskStory] = useState(null); // { id, title }
+  const [showCompletedSprints, setShowCompletedSprints] = useState(false);
 
 
 
@@ -435,6 +436,15 @@ export default function Backlog() {
     }
   };
 
+  const handleAssignStoryById = async (storyId, assigneeId) => {
+    try {
+      await updateUserStory(storyId, { assigneeId });
+      await loadData();
+    } catch (e) {
+      window.alert(e.response?.data?.error || "Lỗi gán thành viên!");
+    }
+  };
+
   const handleAssignTask = async (taskId) => {
     const email = window.prompt("Nhập Email của người phụ trách Task:");
     if (!email) return;
@@ -532,6 +542,7 @@ export default function Backlog() {
 
   const activeSprints = sprints.filter(s => s.status === "ACTIVE");
   const plannedSprints = sprints.filter(s => s.status === "PLANNED");
+  const completedSprints = sprints.filter(s => s.status === "COMPLETED");
 
   // ====================== RENDER ======================
   return (
@@ -594,6 +605,8 @@ export default function Backlog() {
               selectedStories={selectedStories}
               onToggleSelect={toggleStorySelection}
               onSelectAll={handleSelectAll}
+              members={members}
+              onAssignId={handleAssignStoryById}
               onMoveToSprint={async (id) => {
                 const latestSprint = sprints.find((s) => s.status === "PLANNED") || sprints[0];
                 if (!latestSprint) {
@@ -663,6 +676,7 @@ export default function Backlog() {
                     sprint={sprint}
                     stories={stories.filter((s) => s.sprintId === sprint.id)}
                     onAssign={handleAssignStory}
+                    onAssignId={handleAssignStoryById}
                     onEdit={handleEditStory}
                     onDelete={handleDeleteStory}
                     onStatusChange={handleSprintStatusChange}
@@ -695,6 +709,7 @@ export default function Backlog() {
                       setTaskStory({ id, title });
                       setIsTaskModalOpen(true);
                     }}
+                    members={members}
                   />
                 </div>
               ))}
@@ -707,6 +722,7 @@ export default function Backlog() {
                     stories={stories.filter((s) => s.sprintId === sprint.id)}
                     projectId={projectId}
                     onAssign={handleAssignStory}
+                    onAssignId={handleAssignStoryById}
                     onEdit={handleEditStory}
                     onDelete={handleDeleteStory}
                     onStatusChange={handleSprintStatusChange}
@@ -735,6 +751,7 @@ export default function Backlog() {
                       setTaskStory({ id, title });
                       setIsTaskModalOpen(true);
                     }}
+                    members={members}
                   />
                 ))
               ) : (
@@ -746,6 +763,74 @@ export default function Backlog() {
                 )
               )}
             </div>
+
+            {/* Completed Sprints Section */}
+            {completedSprints.length > 0 && (
+              <div className="space-y-4 pt-6 border-t border-outline-variant/10">
+                <div className="flex justify-between items-center px-2">
+                  <h3 className="text-lg font-bold text-on-surface-variant flex items-center gap-2">
+                    <span className="material-symbols-outlined text-emerald-600">check_circle</span>
+                    Sprints đã hoàn thành
+                  </h3>
+                  <button
+                    onClick={() => setShowCompletedSprints(!showCompletedSprints)}
+                    className="px-4 py-2 bg-surface-container hover:bg-surface-container-high text-on-surface-variant rounded-xl text-xs font-bold flex items-center gap-2 transition-all border border-outline-variant/10"
+                  >
+                    <span className="material-symbols-outlined text-base">
+                      {showCompletedSprints ? "keyboard_arrow_up" : "keyboard_arrow_down"}
+                    </span>
+                    {showCompletedSprints ? "Ẩn danh sách" : `Hiển thị (${completedSprints.length})`}
+                  </button>
+                </div>
+
+                {showCompletedSprints && (
+                  <div className="space-y-4 animate-in fade-in duration-300">
+                    {completedSprints.map((sprint) => (
+                      <SprintSection
+                        key={sprint.id}
+                        sprint={sprint}
+                        stories={stories.filter((s) => s.sprintId === sprint.id)}
+                        onAssign={handleAssignStory}
+                        onAssignId={handleAssignStoryById}
+                        onEdit={handleEditStory}
+                        onDelete={handleDeleteStory}
+                        onStatusChange={handleSprintStatusChange}
+                        onStartClick={(sprint, stories) => {
+                          setSprintToStart({ sprint, stories });
+                          setIsStartSprintModalOpen(true);
+                        }}
+                        onCompleteClick={(sprint, stories) => {
+                          setSprintToComplete({ sprint, stories });
+                          setIsCompleteSprintModalOpen(true);
+                        }}
+                        onCeremonyClick={(sprint) => {
+                          setCeremonySprint(sprint);
+                          setIsCeremonyModalOpen(true);
+                        }}
+                        userRole={userRole}
+                        selectedStories={selectedStories}
+                        onToggleSelect={toggleStorySelection}
+                        onSelectAll={handleSelectAll}
+                        onMoveToBacklog={async (id) => {
+                          try {
+                            await updateUserStory(id, { sprintId: null, status: "BACKLOG" });
+                            await loadData();
+                          } catch (err) {
+                            console.error(err);
+                            alert("Không thể rút về Backlog");
+                          }
+                        }}
+                        onAddTask={(id, title) => {
+                          setTaskStory({ id, title });
+                          setIsTaskModalOpen(true);
+                        }}
+                        members={members}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </DndContext>
       </div>

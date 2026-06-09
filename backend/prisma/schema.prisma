@@ -15,13 +15,14 @@ model User {
   role            String          @default("MEMBER")
   createdAt       DateTime        @default(now())
   projects        ProjectMember[]
-  assignedStories UserStory[]     @relation("AssignedStories")
-  assignedTasks   Task[]          @relation("AssignedTasks")
+  assignedStories UserStory[]          @relation("AssignedStories")
+  assignedTasks   Task[]               @relation("AssignedTasks")
   standups        DailyStandup[]
   comments        Comment[]
-  attachments Attachment[]
+  attachments     Attachment[]
   notificationsReceived Notification[] @relation("ReceivedNotifications")
   notificationsSent     Notification[] @relation("SentNotifications")
+  contributions   MemberContribution[] // Đóng góp trong các Sprint
 }
 
 model Project {
@@ -56,9 +57,10 @@ model Sprint {
   endDate   DateTime?
   status    String      @default("PLANNED") // PLANNED, ACTIVE, COMPLETED
   projectId String
-  project   Project     @relation(fields: [projectId], references: [id])
+  project   Project        @relation(fields: [projectId], references: [id])
   stories   UserStory[]
-  createdAt DateTime    @default(now())
+  createdAt DateTime       @default(now())
+  summary   SprintSummary? // Kết quả tổng kết Sprint
 }
 
 model UserStory {
@@ -76,6 +78,7 @@ model UserStory {
   assignee     User?   @relation("AssignedStories", fields: [assigneeId], references: [id])
   project      Project @relation(fields: [projectId], references: [id])
   sprint       Sprint? @relation(fields: [sprintId], references: [id])
+  hoursSpent   Int?        // Giờ thực tế hoàn thành (nullable, ước tính SP×4 nếu null)
   tasks        Task[]
   comments     Comment[]
   attachments  Attachment[]
@@ -172,4 +175,47 @@ model Notification {
   
   user        User     @relation("ReceivedNotifications", fields: [userId], references: [id], onDelete: Cascade)
   sender      User?    @relation("SentNotifications", fields: [senderId], references: [id], onDelete: SetNull)
+}
+
+// ============================================================
+// MÔ-ĐUN TỔNG KẾT SPRINT (End Sprint & Contribution Assessment)
+// ============================================================
+
+/// Lưu kết quả tổng kết của một Sprint sau khi kết thúc.
+/// Được tạo bởi PO/SM khi gọi API generate.
+model SprintSummary {
+  id             String               @id @default(cuid())
+  sprintId       String               @unique
+  sprint         Sprint               @relation(fields: [sprintId], references: [id], onDelete: Cascade)
+  totalSP        Int                  // Tổng Story Points đạt được (status=DONE)
+  totalHours     Int                  // Tổng giờ làm việc thực tế (hoặc ước tính)
+  plannedSP      Int                  // Tổng SP ban đầu của Sprint
+  completionRate Float                // % hoàn thành = (doneStories / totalStories) × 100
+  notes          String?              // Nhận xét / Retrospective của PO/SM
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  contributions  MemberContribution[]
+}
+
+/// Lưu đóng góp của từng thành viên trong một Sprint.
+/// Được tính tự động khi generate SprintSummary.
+model MemberContribution {
+  id               String        @id @default(cuid())
+  summaryId        String
+  summary          SprintSummary @relation(fields: [summaryId], references: [id], onDelete: Cascade)
+  userId           String
+  user             User          @relation(fields: [userId], references: [id])
+  roleInSprint     String        // Vai trò tại thời điểm kết thúc (PO/SM/DEV/TESTER/DESIGNER)
+  storiesCompleted Int           // Số User Story hoàn thành (status=DONE)
+  storyPoints      Int           // Tổng SP của stories được assign và DONE
+  hoursWorked      Int           // Tổng giờ làm việc (thực tế hoặc ước tính)
+  // JSON string chứa chỉ số đặc trưng theo vai trò:
+  // Tester: {"testCases": 50, "bugsFound": 12}
+  // Designer: {"screens": 10, "components": 5}
+  // Dev: {"commits": 30} (tương lai)
+  specialMetric    String?       @default("{}")
+  contributionPct  Float         // % đóng góp cuối cùng (tổng = 100%)
+  createdAt        DateTime      @default(now())
+
+  @@unique([summaryId, userId]) // Mỗi thành viên chỉ có 1 entry / Sprint
 }

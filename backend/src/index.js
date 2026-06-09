@@ -14,6 +14,7 @@ const path = require('path');
 const commentRoutes = require('./routes/commentRoutes');
 const attachmentRoutes = require('./routes/attachmentRoutes');
 const sprintCeremonyRoutes = require('./routes/sprintCeremonyRoutes');
+const sprintSummaryRoutes  = require('./routes/sprintSummaryRoutes');
 
 
 dotenv.config();
@@ -57,6 +58,9 @@ const authMiddleware = (req, res, next) => {
 app.use('/api/user-stories', userstoryRoutes);
 app.use('/api/standups', authMiddleware, standupRoutes);
 app.use('/api/sprints', authMiddleware, sprintCeremonyRoutes);
+// Mô-đun Tổng kết Sprint (End Sprint & Contribution Assessment)
+// Auth được áp dụng bên trong router, không đưa vào đây để tránh chặn /api/login
+app.use('/api', sprintSummaryRoutes);
 
 console.log("🚀 Backend Mini Scrum Management System - Sprint 1 đang chạy...");
 
@@ -1049,6 +1053,61 @@ app.get("/api/project/:projectId/members", authMiddleware, async (req, res) => {
     res.json(members);
   } catch (err) {
     res.status(500).json({ error: "Lỗi khi lấy danh sách thành viên" });
+  }
+});
+
+// TÌM KIẾM TASK VÀ STORY TRONG PROJECT
+app.get("/api/project/:projectId/search-tasks", authMiddleware, async (req, res) => {
+  const { projectId } = req.params;
+  const { q } = req.query;
+  try {
+    if (q && q.trim()) {
+      const queryStr = q.trim();
+      const stories = await prisma.userStory.findMany({
+        where: {
+          projectId,
+          title: { contains: queryStr }
+        },
+        take: 5,
+        orderBy: { updatedAt: 'desc' }
+      });
+      const tasks = await prisma.task.findMany({
+        where: {
+          userStory: { projectId },
+          title: { contains: queryStr }
+        },
+        include: {
+          userStory: {
+            select: { id: true, title: true }
+          }
+        },
+        take: 5,
+        orderBy: { updatedAt: 'desc' }
+      });
+      res.json({ stories, tasks });
+    } else {
+      const recentStories = await prisma.userStory.findMany({
+        where: { projectId },
+        take: 2,
+        orderBy: { updatedAt: 'desc' }
+      });
+      const recentTasks = await prisma.task.findMany({
+        where: {
+          userStory: { projectId }
+        },
+        include: {
+          userStory: {
+            select: { id: true, title: true }
+          }
+        },
+        take: 2,
+        orderBy: { updatedAt: 'desc' }
+      });
+      res.json({ stories: recentStories, tasks: recentTasks });
+    }
+  } catch (err) {
+    console.error("Search error:", err);
+    res.status(500).json({ error: "Lỗi tìm kiếm: " + err.message });
   }
 });
 

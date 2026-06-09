@@ -26,6 +26,7 @@ export default function BoardPage() {
   const [activeSprint, setActiveSprint] = useState(null);
   const [plannedSprints, setPlannedSprints] = useState([]);
   const [isCompleteSprintModalOpen, setIsCompleteSprintModalOpen] = useState(false);
+  const [members, setMembers] = useState([]);
   const [userRole, setUserRole] = useState("MEMBER");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingStory, setEditingStory] = useState(null);
@@ -93,10 +94,12 @@ export default function BoardPage() {
 
   const loadStories = async () => {
     try {
-      const [storiesRes, sprintsRes] = await Promise.all([
+      const [storiesRes, sprintsRes, membersRes] = await Promise.all([
         getStoriesByProject(projectId),
-        api.get(`/project/${projectId}/sprints`)
+        api.get(`/project/${projectId}/sprints`),
+        api.get(`/project/${projectId}/members`)
       ]);
+      setMembers(Array.isArray(membersRes.data) ? membersRes.data : []);
       
       const active = (Array.isArray(sprintsRes.data) ? sprintsRes.data : [])
                       .find(s => s.status === 'ACTIVE');
@@ -169,6 +172,15 @@ export default function BoardPage() {
     }
   };
 
+  const handleAssignById = async (storyId, assigneeId) => {
+    try {
+      await updateUserStory(storyId, { assigneeId });
+      loadStories();
+    } catch (e) {
+      window.alert("Lỗi gán thành viên: " + (e.response?.data?.error || e.message));
+    }
+  };
+
   const prepareCards = (statusMatches) => {
     return stories.filter(s => s.status === statusMatches).map(s => ({
       ...s,
@@ -222,16 +234,16 @@ export default function BoardPage() {
               <div className="flex-1 overflow-x-auto pb-8 hide-scrollbar -mx-4 px-4 md:mx-0 snap-x snap-mandatory">
                 <div className="flex h-full gap-4 md:gap-8 min-w-[320px] md:min-w-0 md:grid md:grid-cols-4">
                   <div className="snap-center shrink-0 w-[85vw] md:w-auto">
-                    <KanbanColumn title="To Do" status="TODO" items={todoCards} projectId={projectId} onUpdateItem={handleStatusUpdate} onAssign={handleAssign} onEdit={handleEditStory} onDelete={handleDeleteStory} userRole={userRole} />
+                    <KanbanColumn title="To Do" status="TODO" items={todoCards} projectId={projectId} onUpdateItem={handleStatusUpdate} onAssign={handleAssign} onAssignId={handleAssignById} onEdit={handleEditStory} onDelete={handleDeleteStory} userRole={userRole} members={members} />
                   </div>
                   <div className="snap-center shrink-0 w-[85vw] md:w-auto">
-                    <KanbanColumn title="In Progress" status="IN_PROGRESS" items={inProgressCards} projectId={projectId} onUpdateItem={handleStatusUpdate} onAssign={handleAssign} onEdit={handleEditStory} onDelete={handleDeleteStory} userRole={userRole} />
+                    <KanbanColumn title="In Progress" status="IN_PROGRESS" items={inProgressCards} projectId={projectId} onUpdateItem={handleStatusUpdate} onAssign={handleAssign} onAssignId={handleAssignById} onEdit={handleEditStory} onDelete={handleDeleteStory} userRole={userRole} members={members} />
                   </div>
                   <div className="snap-center shrink-0 w-[85vw] md:w-auto">
-                    <KanbanColumn title="Done" status="DONE" items={doneCards} projectId={projectId} onUpdateItem={handleStatusUpdate} onAssign={handleAssign} onEdit={handleEditStory} onDelete={handleDeleteStory} userRole={userRole} />
+                    <KanbanColumn title="Done" status="DONE" items={doneCards} projectId={projectId} onUpdateItem={handleStatusUpdate} onAssign={handleAssign} onAssignId={handleAssignById} onEdit={handleEditStory} onDelete={handleDeleteStory} userRole={userRole} members={members} />
                   </div>
                   <div className="snap-center shrink-0 w-[85vw] md:w-auto">
-                    <KanbanColumn title="Rejected" status="REJECTED" items={rejectedCards} projectId={projectId} onUpdateItem={handleStatusUpdate} onAssign={handleAssign} onEdit={handleEditStory} onDelete={handleDeleteStory} userRole={userRole} />
+                    <KanbanColumn title="Rejected" status="REJECTED" items={rejectedCards} projectId={projectId} onUpdateItem={handleStatusUpdate} onAssign={handleAssign} onAssignId={handleAssignById} onEdit={handleEditStory} onDelete={handleDeleteStory} userRole={userRole} members={members} />
                   </div>
                 </div>
               </div>

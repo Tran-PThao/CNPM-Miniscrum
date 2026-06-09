@@ -2,7 +2,7 @@ import { useDroppable } from '@dnd-kit/core';
 import UserStoryCard from "./UserStoryCard";
 import { toast } from 'react-hot-toast';
 
-export default function SprintSection({ sprint, stories = [], onMoveToBacklog, onAssign, onEdit, onDelete, onStatusChange, onStartClick, onCompleteClick, onCeremonyClick, userRole, selectedStories = [], onToggleSelect, onSelectAll, onAddTask }) {
+export default function SprintSection({ sprint, stories = [], onMoveToBacklog, onAssign, onAssignId, onEdit, onDelete, onStatusChange, onStartClick, onCompleteClick, onCeremonyClick, userRole, selectedStories = [], onToggleSelect, onSelectAll, onAddTask, members = [] }) {
   const isManagement = userRole === "PO" || userRole === "SM";
   const { setNodeRef, isOver } = useDroppable({
     id: `sprint-${sprint.id}`,
@@ -169,6 +169,7 @@ export default function SprintSection({ sprint, stories = [], onMoveToBacklog, o
               variant="sprint"
               onMove={onMoveToBacklog}
               onAssign={onAssign}
+              onAssignId={onAssignId}
               onEdit={onEdit}
               onDelete={onDelete}
               userRole={userRole}
@@ -177,6 +178,7 @@ export default function SprintSection({ sprint, stories = [], onMoveToBacklog, o
               isSelected={selectedStories.includes(story.id)}
               onToggleSelect={onToggleSelect}
               onAddTask={onAddTask}
+              members={members}
             />
           ))
         ) : (

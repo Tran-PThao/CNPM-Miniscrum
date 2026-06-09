@@ -17,7 +17,7 @@ function MainLayoutContent({ children, activePage, header, showHeader = true, pr
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-h-screen md:ml-64 w-full transition-all duration-300">
-        {showHeader && (header || <TopBar />)}
+        {showHeader && (header || <TopBar projectId={projectId} />)}
 
         <main className={`flex-1 p-4 md:p-8 ${!showHeader ? 'pt-4' : ''}`}>
           {children}
