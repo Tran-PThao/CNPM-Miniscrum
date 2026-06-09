@@ -15,6 +15,7 @@ export default function KanbanColumn({
   itemType = 'story', // 'story' or 'task'
   columnId,           // Optional custom ID for swimlanes
   onAssign,
+  onAssignId,
   onEdit,
   onDelete,
   userRole = 'MEMBER',
@@ -56,9 +57,11 @@ export default function KanbanColumn({
                 variant="sprint"
                 userRole={userRole}
                 onAssign={onAssign}
+                onAssignId={onAssignId}
                 onEdit={onEdit}
                 onDelete={onDelete}
                 onMove={onUpdateItem}
+                members={members}
               />
             ) : (
               <TaskCard

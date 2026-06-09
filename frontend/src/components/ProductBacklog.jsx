@@ -26,7 +26,9 @@ export default function ProductBacklog({
   onToggleSelect,
   onSelectAll,
   projectId,
-  onAddTask
+  onAddTask,
+  members = [],
+  onAssignId
 }) {
   const isManagement = userRole === "PO" || userRole === "SM";
 
@@ -331,6 +333,8 @@ useSocket(projectId, handleRealTimeUpdate);
                   isSelected={selectedStories.includes(story.id)}
                   onToggleSelect={onToggleSelect}
                   onAddTask={onAddTask}
+                  members={members}
+                  onAssignId={onAssignId}
                 />
               ))
             ) : (

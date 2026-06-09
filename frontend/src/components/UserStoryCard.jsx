@@ -23,6 +23,7 @@ export default function UserStoryCard({
   tags = [],
   variant = "sprint", // "sprint" or "backlog"
   onAssign,
+  onAssignId,
   onEdit,
   onDelete,
   onMove,
@@ -33,7 +34,8 @@ export default function UserStoryCard({
   onToggleSelect,
   onAddTask,
   comments = [],
-  dragProps = {}
+  dragProps = {},
+  members = []
 }) {
   const isSprint = variant === "sprint";
   const isManagement = userRole === "PO" || userRole === "SM";
@@ -153,11 +155,37 @@ export default function UserStoryCard({
               </div>
 
               {/* Assignee Avatar */}
-              <div className="shrink-0 w-7 flex justify-center">
-                {assignee?.fullName && (
+              <div className="shrink-0 w-7 flex justify-center relative" onClick={(e) => e.stopPropagation()}>
+                {assignee?.fullName ? (
                   <div className="w-6 h-6 rounded-full bg-primary text-on-primary flex items-center justify-center text-[10px] font-bold shadow-sm" title={assignee.fullName}>
                     {assignee.fullName.charAt(0).toUpperCase()}
                   </div>
+                ) : isManagement ? (
+                  <div 
+                    className="w-6 h-6 rounded-full bg-surface-container flex items-center justify-center cursor-pointer hover:bg-primary/20 hover:text-primary transition-colors text-outline border border-dashed border-outline-variant/30"
+                    title="Gán thành viên"
+                  >
+                    <span className="material-symbols-outlined text-[12px]">person_add</span>
+                  </div>
+                ) : null}
+
+                {isManagement && members && members.length > 0 && (
+                  <select
+                    value={assignee?.id || 'unassigned'}
+                    onChange={(e) => {
+                      const val = e.target.value === 'unassigned' ? null : e.target.value;
+                      onAssignId?.(id, val);
+                    }}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
+                    title="Đổi người phụ trách"
+                  >
+                    <option value="unassigned">Chưa gán</option>
+                    {members.map(m => (
+                      <option key={m.user.id} value={m.user.id}>
+                        {m.user.fullName || m.user.email}
+                      </option>
+                    ))}
+                  </select>
                 )}
               </div>
             </div>
@@ -325,26 +353,46 @@ export default function UserStoryCard({
           )}
         </div>
 
-        {assignee?.fullName ? (
-          <div 
-            className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary font-bold text-sm shadow-sm"
-            title={assignee.fullName}
-          >
-            {assignee.fullName.charAt(0).toUpperCase()}
-          </div>
-        ) : isManagement ? (
-          <button 
-            onClick={(e) => { e.stopPropagation(); onAssign?.(id); }}
-            className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center cursor-pointer hover:bg-primary/20 hover:text-primary transition-colors text-outline border border-dashed border-outline-variant/30"
-            title="Gán thành viên"
-          >
-            <span className="material-symbols-outlined text-sm">person_add</span>
-          </button>
-        ) : (
-          <div className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-outline opacity-50 border border-outline-variant/10">
-            <span className="material-symbols-outlined text-sm">person</span>
-          </div>
-        )}
+        <div className="relative" onClick={(e) => e.stopPropagation()}>
+          {assignee?.fullName ? (
+            <div 
+              className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary font-bold text-sm shadow-sm"
+              title={assignee.fullName}
+            >
+              {assignee.fullName.charAt(0).toUpperCase()}
+            </div>
+          ) : isManagement ? (
+            <div 
+              className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center cursor-pointer hover:bg-primary/20 hover:text-primary transition-colors text-outline border border-dashed border-outline-variant/30"
+              title="Gán thành viên"
+            >
+              <span className="material-symbols-outlined text-sm">person_add</span>
+            </div>
+          ) : (
+            <div className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-outline opacity-50 border border-outline-variant/10">
+              <span className="material-symbols-outlined text-sm">person</span>
+            </div>
+          )}
+
+          {isManagement && members && members.length > 0 && (
+            <select
+              value={assignee?.id || 'unassigned'}
+              onChange={(e) => {
+                const val = e.target.value === 'unassigned' ? null : e.target.value;
+                onAssignId?.(id, val);
+              }}
+              className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
+              title="Đổi người phụ trách"
+            >
+              <option value="unassigned">Chưa gán</option>
+              {members.map(m => (
+                <option key={m.user.id} value={m.user.id}>
+                  {m.user.fullName || m.user.email}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
       </div>
     </div>
   );
