@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { useSidebar } from "../context/SidebarContext";
 import { useNavigate, useParams } from "react-router-dom";
-import api, { getInvitations, respondToInvitation } from "../services/api";
+import api, { getInvitations, respondToInvitation, getAvatarUrl } from "../services/api";
 import NotificationBell from "./NotificationBell";
 import useNotifications from '../hooks/useNotifications.jsx';
 import ThemeToggle from "./ThemeToggle";
+import { useAuth } from "../context/AuthContext";
 
 export default function TopBar({ projectId: propProjectId }) {
   const { toggle } = useSidebar();
@@ -12,7 +13,8 @@ export default function TopBar({ projectId: propProjectId }) {
   const [showMenu, setShowMenu] = useState(false);
   const [invitations, setInvitations] = useState([]);
   
-  const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+  const { user } = useAuth() || {};
+  const currentUser = user || {};
   
   const { projectId: routeProjectId } = useParams();
   const projectId = propProjectId || routeProjectId;
@@ -205,8 +207,16 @@ export default function TopBar({ projectId: propProjectId }) {
             onClick={() => setShowMenu(!showMenu)}
             className="group flex items-center gap-1 md:gap-2 p-1 pr-1.5 md:pr-3 rounded-full border border-outline-variant/10 hover:bg-surface-container-high transition-all flex-shrink-0"
           >
-            <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-primary flex items-center justify-center text-on-primary font-bold text-[10px] md:text-xs shadow-sm flex-shrink-0">
-              {currentUser.fullName?.charAt(0).toUpperCase() || 'U'}
+            <div className="w-7 h-7 md:w-8 md:h-8 rounded-full overflow-hidden bg-primary flex items-center justify-center text-on-primary font-bold text-[10px] md:text-xs shadow-sm flex-shrink-0">
+              {currentUser.avatar ? (
+                <img 
+                  src={getAvatarUrl(currentUser.avatar)} 
+                  alt="Avatar" 
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                currentUser.fullName?.charAt(0).toUpperCase() || 'U'
+              )}
             </div>
             <span className="hidden md:block text-xs font-bold text-on-surface opacity-80 whitespace-nowrap">{currentUser.fullName}</span>
             <span className="material-symbols-outlined text-xs md:text-sm text-on-surface-variant group-hover:rotate-180 transition-transform flex-shrink-0">expand_more</span>

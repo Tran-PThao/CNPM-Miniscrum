@@ -2,13 +2,16 @@ import { useState } from "react";
 import { useSidebar } from "../context/SidebarContext";
 import { useNavigate } from "react-router-dom";
 import NotificationBell from "./NotificationBell";
+import { useAuth } from "../context/AuthContext";
+import { getAvatarUrl } from "../services/api";
 
-export default function BoardTopBar({ timeRemaining = "4 days 12 hours remaining", projectId }) {
+export default function BoardTopBar({ timeRemaining = "4 days 12 hours remaining", projectId, onCompleteSprint, userRole, hasActiveSprint }) {
   const { toggle } = useSidebar();
   const navigate = useNavigate();
   const [showMenu, setShowMenu] = useState(false);
 
-  const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+  const { user } = useAuth() || {};
+  const currentUser = user || {};
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -52,11 +55,16 @@ export default function BoardTopBar({ timeRemaining = "4 days 12 hours remaining
         </div>
 
         {/* Complete Sprint Button - Hide text on small screens */}
-        <button className="bg-gradient-to-br from-primary-container to-surface text-primary border border-primary/20 px-3 md:px-6 py-1.5 md:py-2 rounded-full font-['Manrope'] font-bold text-xs md:text-sm shadow-sm transition-all active:scale-95 hover:bg-primary/5 flex-shrink-0 whitespace-nowrap">
-          <span className="hidden md:inline">Complete</span>
-          <span className="md:hidden">✓</span>
-          <span className="hidden md:inline"> Sprint</span>
-        </button>
+        {hasActiveSprint && (userRole === 'PO' || userRole === 'SM') && (
+          <button 
+            onClick={onCompleteSprint}
+            className="bg-gradient-to-br from-primary-container to-surface text-primary border border-primary/20 px-3 md:px-6 py-1.5 md:py-2 rounded-full font-['Manrope'] font-bold text-xs md:text-sm shadow-sm transition-all active:scale-95 hover:bg-primary/5 flex-shrink-0 whitespace-nowrap"
+          >
+            <span className="hidden md:inline">Complete</span>
+            <span className="md:hidden">✓</span>
+            <span className="hidden md:inline"> Sprint</span>
+          </button>
+        )}
 
         <div className="h-8 w-[1px] bg-outline-variant mx-1 md:mx-2 flex-shrink-0"></div>
 
@@ -65,8 +73,16 @@ export default function BoardTopBar({ timeRemaining = "4 days 12 hours remaining
             onClick={() => setShowMenu(!showMenu)}
             className="group flex items-center gap-2 p-1 pr-3 rounded-full border border-outline-variant/10 hover:bg-surface-container-high transition-all flex-shrink-0"
           >
-            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary font-bold text-xs shadow-sm flex-shrink-0">
-              {currentUser.fullName?.charAt(0).toUpperCase() || 'U'}
+            <div className="w-8 h-8 rounded-full overflow-hidden bg-primary flex items-center justify-center text-on-primary font-bold text-xs shadow-sm flex-shrink-0">
+              {currentUser.avatar ? (
+                <img 
+                  src={getAvatarUrl(currentUser.avatar)} 
+                  alt="Avatar" 
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                currentUser.fullName?.charAt(0).toUpperCase() || 'U'
+              )}
             </div>
             <span className="hidden md:block text-xs font-bold text-on-surface opacity-80 whitespace-nowrap">
               {currentUser.fullName}

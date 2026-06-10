@@ -257,7 +257,7 @@ router.post('/sprints/:sprintId/summary/generate', auth, async (req, res) => {
       },
       include: {
         contributions: {
-          include: { user: { select: { id: true, fullName: true, email: true } } },
+          include: { user: { select: { id: true, fullName: true, email: true, avatar: true } } },
           orderBy: { contributionPct: 'desc' },
         },
         sprint: { select: { name: true, startDate: true, endDate: true } },
@@ -298,7 +298,7 @@ router.get('/sprints/:sprintId/summary', auth, async (req, res) => {
       where:   { sprintId },
       include: {
         contributions: {
-          include: { user: { select: { id: true, fullName: true, email: true } } },
+          include: { user: { select: { id: true, fullName: true, email: true, avatar: true } } },
           orderBy: { contributionPct: 'desc' },
         },
         sprint: {

@@ -21,7 +21,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import MainLayout from '../components/MainLayout';
 import ContributionChart from '../components/analytics/ContributionChart';
-import api from '../services/api';
+import api, { getAvatarUrl } from '../services/api';
 
 // ── Màu sắc theo vai trò ──────────────────────────────────────
 const ROLE_STYLE = {
@@ -184,9 +184,17 @@ function ContributionRow({ c, index }) {
       {/* Thành viên */}
       <td className="px-5 py-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center
+          <div className="w-10 h-10 rounded-full overflow-hidden bg-primary/10 flex items-center justify-center
             font-bold text-sm text-primary flex-shrink-0 border border-primary/10">
-            {(c.user?.fullName || '?').split(' ').slice(-2).map(w => w[0]).join('').toUpperCase()}
+            {c.user?.avatar ? (
+              <img 
+                src={getAvatarUrl(c.user.avatar)} 
+                alt="Avatar" 
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              (c.user?.fullName || '?').split(' ').slice(-2).map(w => w[0]).join('').toUpperCase()
+            )}
           </div>
           <div>
             <div className="font-semibold text-sm text-on-surface">
