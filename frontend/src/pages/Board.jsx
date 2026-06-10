@@ -54,9 +54,19 @@ export default function BoardPage() {
     const activeId = active.id;
     const overId = over.id;
 
-    // Xác định status mục tiêu từ overId (format: column-{STATUS})
+    // Xác định status mục tiêu từ overId
+    let newStatus = null;
     if (overId.startsWith('column-')) {
-      const newStatus = overId.replace('column-', '');
+      newStatus = overId.replace('column-', '');
+    } else {
+      // Nếu overId là ID của một Story Card khác, ta tìm xem Story đó đang ở cột nào
+      const overStory = stories.find(s => s.id === overId);
+      if (overStory) {
+        newStatus = overStory.status;
+      }
+    }
+
+    if (newStatus) {
       const story = stories.find(s => s.id === activeId);
       
       if (story && story.status !== newStatus) {
@@ -66,7 +76,6 @@ export default function BoardPage() {
         try {
           await handleStatusUpdate(activeId, newStatus);
         } catch (err) {
-          // loadStories will handle recovery if handleStatusUpdate fails or I can manually rollback
           loadStories();
         }
       }
@@ -195,10 +204,35 @@ export default function BoardPage() {
   const doneCards = prepareCards('DONE');
   const rejectedCards = prepareCards('REJECTED'); // Thêm dòng này
 
+  const calculateTimeRemaining = () => {
+    if (!activeSprint) return "Chưa bắt đầu Sprint";
+    if (!activeSprint.endDate) return "Không giới hạn thời gian";
+    const end = new Date(activeSprint.endDate);
+    const now = new Date();
+    const diff = end - now;
+    if (diff <= 0) return "Sprint đã quá hạn";
+    
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    
+    if (days > 0) {
+      return `${days} ngày ${hours} giờ còn lại`;
+    }
+    return `${hours} giờ còn lại`;
+  };
+
   return (
     <MainLayout 
       activePage="Board"
-      header={<BoardTopBar projectId={projectId} />}
+      header={
+        <BoardTopBar 
+          projectId={projectId} 
+          timeRemaining={calculateTimeRemaining()} 
+          onCompleteSprint={() => setIsCompleteSprintModalOpen(true)}
+          userRole={userRole}
+          hasActiveSprint={!!activeSprint}
+        />
+      }
       projectId={projectId}
     >
       <div className="h-full">
@@ -215,7 +249,7 @@ export default function BoardPage() {
                   Kết thúc ngày: {new Date(activeSprint.endDate).toLocaleDateString()}
                 </div>
               )}
-              {userRole === 'SM' && (
+              {(userRole === 'SM' || userRole === 'PO') && (
                 <button 
                   onClick={() => setIsCompleteSprintModalOpen(true)}
                   className="ml-auto px-4 py-1.5 bg-emerald-600/10 text-emerald-600 text-[10px] font-black uppercase tracking-widest rounded-full border border-emerald-600/20 hover:bg-emerald-600 hover:text-white transition-all flex items-center gap-1.5"

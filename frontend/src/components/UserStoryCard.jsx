@@ -1,5 +1,6 @@
 //frontend/src/components/UserStoryCard.jsx
 import React, { useState } from 'react';
+import { getAvatarUrl } from '../services/api';
 
 const priorityConfig = {
   HIGH: "bg-error text-on-error",
@@ -157,8 +158,16 @@ export default function UserStoryCard({
               {/* Assignee Avatar */}
               <div className="shrink-0 w-7 flex justify-center relative" onClick={(e) => e.stopPropagation()}>
                 {assignee?.fullName ? (
-                  <div className="w-6 h-6 rounded-full bg-primary text-on-primary flex items-center justify-center text-[10px] font-bold shadow-sm" title={assignee.fullName}>
-                    {assignee.fullName.charAt(0).toUpperCase()}
+                  <div className="w-6 h-6 rounded-full overflow-hidden bg-primary text-on-primary flex items-center justify-center text-[10px] font-bold shadow-sm" title={assignee.fullName}>
+                    {assignee.avatar ? (
+                      <img 
+                        src={getAvatarUrl(assignee.avatar)} 
+                        alt="Avatar" 
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      assignee.fullName.charAt(0).toUpperCase()
+                    )}
                   </div>
                 ) : isManagement ? (
                   <div 
@@ -356,10 +365,18 @@ export default function UserStoryCard({
         <div className="relative" onClick={(e) => e.stopPropagation()}>
           {assignee?.fullName ? (
             <div 
-              className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary font-bold text-sm shadow-sm"
+              className="w-8 h-8 rounded-full overflow-hidden bg-primary flex items-center justify-center text-on-primary font-bold text-sm shadow-sm"
               title={assignee.fullName}
             >
-              {assignee.fullName.charAt(0).toUpperCase()}
+              {assignee.avatar ? (
+                <img 
+                  src={getAvatarUrl(assignee.avatar)} 
+                  alt="Avatar" 
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                assignee.fullName.charAt(0).toUpperCase()
+              )}
             </div>
           ) : isManagement ? (
             <div 

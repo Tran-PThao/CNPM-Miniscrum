@@ -14,6 +14,7 @@ import BoardPage from './pages/Board';
 import StandupPage from './pages/StandupPage';
 import Reports from './pages/Reports';
 import SprintSummary from './pages/SprintSummary';
+import Settings from './pages/Settings';
 
 function App() {
   return (
@@ -36,6 +37,7 @@ function App() {
             <Route path="/projects/:id/edit" element={<EditProject />} />
             <Route path="/backlog" element={<Backlog />} />
             <Route path="/board" element={<BoardPage />} />
+            <Route path="/settings" element={<Settings />} />
           </Routes>
         </NotificationProvider>
       </SidebarProvider>

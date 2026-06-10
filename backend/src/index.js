@@ -504,7 +504,7 @@ app.get("/api/userstory/:id", async (req, res) => {
       where: { id: req.params.id },
       include: {
         project: true,
-        assignee: { select: { fullName: true, email: true } },
+        assignee: { select: { fullName: true, email: true, avatar: true } },
         comments: {
           include: { user: { select: { fullName: true, email: true } } },
           orderBy: { createdAt: "asc" }
@@ -564,11 +564,11 @@ app.get("/api/project/:projectId/userstories", async (req, res) => {
         { title: "asc" }
       ],
       include: {
-        assignee: { select: { fullName: true, email: true } },
+        assignee: { select: { fullName: true, email: true, avatar: true } },
         comments: { select: { id: true } },
         tasks: {
           orderBy: { createdAt: "asc" },
-          include: { assignee: { select: { id: true, fullName: true, email: true } } }
+          include: { assignee: { select: { id: true, fullName: true, email: true, avatar: true } } }
         }
       }
     });
@@ -592,10 +592,10 @@ app.get("/api/project/:projectId/sprints", authMiddleware, async (req, res) => {
       include: {
         stories: {
           include: {
-            assignee: { select: { fullName: true, email: true } },
+            assignee: { select: { fullName: true, email: true, avatar: true } },
             comments: { select: { id: true } },
             tasks: {
-              include: { assignee: { select: { id: true, fullName: true, email: true } } },
+              include: { assignee: { select: { id: true, fullName: true, email: true, avatar: true } } },
               orderBy: { createdAt: "asc" }
             }
           }
@@ -642,9 +642,9 @@ app.get("/api/sprint/:id", authMiddleware, async (req, res) => {
       include: {
         stories: {
           include: {
-            assignee: { select: { fullName: true, email: true } },
+            assignee: { select: { fullName: true, email: true, avatar: true } },
             tasks: {
-              include: { assignee: { select: { id: true, fullName: true, email: true } } },
+              include: { assignee: { select: { id: true, fullName: true, email: true, avatar: true } } },
               orderBy: { createdAt: "asc" }
             }
           }
@@ -814,25 +814,52 @@ app.get("/api/analytics/:projectId/sprint/:sprintId/burndown", authMiddleware, a
 
     const start = new Date(sprint.startDate);
     const end = new Date(sprint.endDate);
-    const days = [];
-    let curr = new Date(start);
-    while (curr <= end) {
-      days.push(new Date(curr));
-      curr.setDate(curr.getDate() + 1);
-    }
-    // Đảm bảo include ngày cuối nếu chưa có
-    if (days[days.length - 1] < end) days.push(new Date(end));
+
+    const getLocalDateString = (date) => {
+      const d = new Date(date);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
+    const startStr = getLocalDateString(start);
+    const endStr = getLocalDateString(end);
+
+    const sDate = new Date(startStr + 'T00:00:00');
+    const eDate = new Date(endStr + 'T00:00:00');
+
+    // Calculate inclusive calendar days duration
+    const diffTime = Math.abs(eDate - sDate);
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+    const totalDays = diffDays + 1;
 
     const totalPoints = sprint.stories.reduce((sum, s) => sum + (s.storyPoints || 0), 0);
-    const data = days.map(day => {
-      const dayStr = day.toISOString().split('T')[0];
-      
-      // Tính toán số điểm còn lại tính tới cuối ngày này
+    const data = [];
+
+    // Day 0: Start of Sprint
+    const startMonth = start.getMonth() + 1;
+    const startDay = start.getDate();
+    data.push({
+      date: startStr,
+      displayDate: `${startDay}/${startMonth} (Bắt đầu)`,
+      actual: totalPoints,
+      ideal: totalPoints
+    });
+
+    let curr = new Date(sDate);
+    let dayIdx = 1;
+
+    while (curr <= eDate) {
+      const currStr = getLocalDateString(curr);
+      const endOfDayLimit = new Date(currStr + 'T23:59:59.999');
+
+      // Calculate remaining points at the end of this day
       let remainingPoints = totalPoints;
       sprint.stories.forEach(story => {
-        // Tìm lịch sử chuyển sang DONE trước hoặc trong ngày này
+        // Find if story was completed on or before this day
         const doneHistory = story.statusHistory
-          .filter(h => h.status === 'DONE' && new Date(h.changedAt) <= day)
+          .filter(h => h.status === 'DONE' && new Date(h.changedAt) <= endOfDayLimit)
           .sort((a, b) => new Date(b.changedAt) - new Date(a.changedAt))[0];
 
         if (doneHistory) {
@@ -841,16 +868,21 @@ app.get("/api/analytics/:projectId/sprint/:sprintId/burndown", authMiddleware, a
       });
 
       // Ideal line calculation
-      const totalDays = (end - start) / (1000 * 60 * 60 * 24);
-      const daysPassed = (day - start) / (1000 * 60 * 60 * 24);
-      const ideal = Math.max(0, totalPoints - (totalPoints / totalDays) * daysPassed);
+      const ideal = Math.max(0, totalPoints - (totalPoints / totalDays) * dayIdx);
 
-      return {
-        date: dayStr,
+      const currMonth = curr.getMonth() + 1;
+      const currDay = curr.getDate();
+
+      data.push({
+        date: currStr,
+        displayDate: `${currDay}/${currMonth}`,
         actual: remainingPoints,
         ideal: parseFloat(ideal.toFixed(2))
-      };
-    });
+      });
+
+      curr.setDate(curr.getDate() + 1);
+      dayIdx++;
+    }
 
     res.json(data);
   } catch (err) {
@@ -1048,7 +1080,7 @@ app.get("/api/project/:projectId/members", authMiddleware, async (req, res) => {
   try {
     const members = await prisma.projectMember.findMany({
       where: { projectId },
-      include: { user: { select: { id: true, email: true, fullName: true } } },
+      include: { user: { select: { id: true, email: true, fullName: true, avatar: true } } },
     });
     res.json(members);
   } catch (err) {
@@ -1393,6 +1425,129 @@ app.post("/api/tasks/:taskId/comments", authMiddleware, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Lỗi khi lưu bình luận cho Task" });
+  }
+});
+
+// === USER PROFILE & SETTINGS API ===
+
+const avatarStorage = multer.diskStorage({
+  destination: 'uploads/',
+  filename: (req, file, cb) => {
+    cb(null, 'avatar-' + Date.now() + path.extname(file.originalname));
+  }
+});
+
+const avatarUpload = multer({
+  storage: avatarStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    if (extname && mimetype) {
+      return cb(null, true);
+    }
+    cb(new Error("Chỉ chấp nhận định dạng file ảnh .jpg, .jpeg, .png!"));
+  }
+}).single('avatar');
+
+// GET Profile
+app.get("/api/user/profile", authMiddleware, async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.userId },
+      select: { id: true, email: true, fullName: true, role: true, avatar: true }
+    });
+    if (!user) return res.status(404).json({ error: "Không tìm thấy người dùng" });
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ error: "Lỗi máy chủ khi lấy thông tin người dùng" });
+  }
+});
+
+// PATCH Profile (Họ tên + Avatar)
+app.patch("/api/user/profile", authMiddleware, (req, res) => {
+  avatarUpload(req, res, async (err) => {
+    if (err) {
+      return res.status(400).json({ error: err.message });
+    }
+    
+    const { fullName } = req.body;
+    const updateData = {};
+    
+    if (fullName !== undefined) {
+      if (!fullName || fullName.trim() === '') {
+        return res.status(400).json({ error: "Họ và tên không được để trống" });
+      }
+      
+      // Kiểm tra ký tự đặc biệt (@, #, $, ...)
+      const specialCharRegex = /[@#\$%\^&\*\(\)\+=\{\}\[\]\<\>\?\/\\\|~`_]/;
+      if (specialCharRegex.test(fullName)) {
+        return res.status(400).json({ error: "Họ và tên không được chứa ký tự đặc biệt (@, #, $, ...)" });
+      }
+      updateData.fullName = fullName.trim();
+    }
+    
+    if (req.file) {
+      updateData.avatar = `/uploads/${req.file.filename}`;
+    }
+    
+    try {
+      const updatedUser = await prisma.user.update({
+        where: { id: req.user.userId },
+        data: updateData,
+        select: { id: true, email: true, fullName: true, role: true, avatar: true }
+      });
+      res.json({ message: "Cập nhật thông tin cá nhân thành công!", user: updatedUser });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: "Lỗi máy chủ khi cập nhật thông tin" });
+    }
+  });
+});
+
+// POST Change Password
+app.post("/api/user/change-password", authMiddleware, async (req, res) => {
+  const { currentPassword, newPassword, confirmPassword } = req.body;
+  
+  if (!currentPassword || !newPassword || !confirmPassword) {
+    return res.status(400).json({ error: "Vui lòng điền đầy đủ tất cả các trường mật khẩu" });
+  }
+  
+  if (newPassword !== confirmPassword) {
+    return res.status(400).json({ error: "Mật khẩu xác nhận không khớp" });
+  }
+  
+  // Validate new password strength (at least 8 chars, letter + number)
+  const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
+  if (!passwordRegex.test(newPassword)) {
+    return res.status(400).json({ error: "Mật khẩu mới phải từ 8 ký tự trở lên, bao gồm cả chữ và số" });
+  }
+  
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.userId }
+    });
+    
+    if (!user) {
+      return res.status(404).json({ error: "Không tìm thấy người dùng" });
+    }
+    
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ error: "Mật khẩu hiện tại không chính xác" });
+    }
+    
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await prisma.user.update({
+      where: { id: req.user.userId },
+      data: { password: hashed }
+    });
+    
+    res.json({ message: "Đổi mật khẩu thành công!" });
+  } catch (err) {
+    console.error("Change password error:", err);
+    res.status(500).json({ error: "Lỗi máy chủ khi đổi mật khẩu" });
   }
 });
 

@@ -87,4 +87,23 @@ export const saveSprintRetrospective = (sprintId, data) => api.put(`/sprints/${s
 export const getNotifications = () => api.get('/notifications');
 export const markNotificationAsRead = (id) => api.patch(`/notifications/${id}/read`);
 
+// USER SETTINGS
+export const getUserProfile = () => api.get('/user/profile');
+export const updateUserProfile = (formData) => api.patch('/user/profile', formData, {
+  headers: { 'Content-Type': 'multipart/form-data' }
+});
+export const changePassword = (data) => api.post('/user/change-password', data);
+
+// AVATAR HELPER
+export const getAvatarUrl = (avatarPath) => {
+  if (!avatarPath) return null;
+  if (avatarPath.startsWith('http://') || avatarPath.startsWith('https://') || avatarPath.startsWith('data:')) {
+    return avatarPath;
+  }
+  const backendBase = import.meta.env.VITE_API_URL 
+    ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '') 
+    : `http://${window.location.hostname}:5000`;
+  return `${backendBase}${avatarPath}`;
+};
+
 export default api;
