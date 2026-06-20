@@ -1,4 +1,4 @@
-export default function SprintProgress({ completed = 65, done = 12, left = 8 }) {
+export default function SprintProgress({ sprintName = "Sprint", completed = 65, done = 12, left = 8 }) {
   // Circle params: r=88, circumference = 2π*88 ≈ 553
   const circumference = 553;
   const offset = circumference - (completed / 100) * circumference;
@@ -10,7 +10,7 @@ export default function SprintProgress({ completed = 65, done = 12, left = 8 }) 
         <span className="material-symbols-outlined text-8xl">analytics</span>
       </div>
 
-      <h3 className="font-['Manrope'] font-bold text-lg mb-8 self-start">Sprint 1 Progress</h3>
+      <h3 className="font-['Manrope'] font-bold text-lg mb-8 self-start">{sprintName} Progress</h3>
 
       {/* Circular Progress */}
       <div className="relative w-48 h-48 flex items-center justify-center">

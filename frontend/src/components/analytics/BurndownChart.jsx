@@ -18,12 +18,8 @@ export default function BurndownChart({ data }) {
         >
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e0e0e0" />
           <XAxis 
-            dataKey="date" 
+            dataKey="displayDate" 
             tick={{fontSize: 10, fill: '#666'}}
-            tickFormatter={(str) => {
-              const d = new Date(str);
-              return `${d.getDate()}/${d.getMonth() + 1}`;
-            }}
           />
           <YAxis tick={{fontSize: 12, fill: '#666'}} label={{ value: 'Points', angle: -90, position: 'insideLeft' }} />
           <Tooltip 

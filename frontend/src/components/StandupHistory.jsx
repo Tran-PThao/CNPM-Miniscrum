@@ -55,14 +55,14 @@ export default function StandupHistory({ standups, members }) {
                         {/* Date Header */}
                         <button 
                             onClick={() => toggleDate(date)}
-                            className="w-full flex items-center justify-between p-6 bg-surface-container-low/40 hover:bg-surface-container-low transition-colors group"
+                            className="w-full flex items-center justify-between p-4 md:p-6 bg-surface-container-low/40 hover:bg-surface-container-low transition-colors group"
                         >
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary group-hover:rotate-12 transition-transform duration-300">
-                                    <span className="material-symbols-outlined font-bold">calendar_today</span>
+                            <div className="flex items-center gap-3 md:gap-4">
+                                <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-primary/10 flex items-center justify-center text-primary group-hover:rotate-12 transition-transform duration-300">
+                                    <span className="material-symbols-outlined font-bold text-lg md:text-2xl">calendar_today</span>
                                 </div>
                                 <div className="text-left">
-                                    <h3 className="text-lg font-black text-on-surface tracking-tight capitalize">{date}</h3>
+                                    <h3 className="text-base md:text-lg font-black text-on-surface tracking-tight capitalize leading-tight">{date}</h3>
                                     <div className="flex items-center gap-2 mt-1">
                                         <div className="h-1.5 w-24 bg-outline-variant/20 rounded-full overflow-hidden">
                                             <div 
@@ -90,10 +90,10 @@ export default function StandupHistory({ standups, members }) {
                                         <div className="absolute left-3 top-0 bottom-0 w-0.5 bg-outline-variant/10 group-last/item:bottom-auto group-last/item:h-8" />
                                         <div className="absolute left-[7px] top-8 w-2.5 h-2.5 rounded-full bg-primary border-4 border-surface shadow-sm" />
 
-                                        <div className="bg-surface-container-low/30 rounded-3xl p-6 border border-outline-variant/5 group-hover/item:border-primary/20 transition-all">
+                                        <div className="bg-surface-container-low/30 rounded-[20px] md:rounded-3xl p-4 md:p-6 border border-outline-variant/5 group-hover/item:border-primary/20 transition-all">
                                             <div className="flex items-center justify-between mb-4">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-primary-container flex items-center justify-center text-on-primary font-bold text-xs ring-4 ring-surface">
+                                                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-primary-container flex items-center justify-center text-on-primary font-bold text-xs ring-4 ring-surface shrink-0">
                                                         {log.user.fullName?.[0] || log.user.email[0].toUpperCase()}
                                                     </div>
                                                     <div>

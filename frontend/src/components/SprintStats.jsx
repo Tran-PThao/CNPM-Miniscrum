@@ -1,8 +1,13 @@
+import { useNavigate } from "react-router-dom";
+
 export default function SprintStats({
-  timeRemaining = "4 Days 12h",
-  velocity = 32,
-  capacity = 88,
+  projectId,
+  timeRemaining = "N/A",
+  velocity = 0,
+  capacity = 0,
 }) {
+  const navigate = useNavigate();
+
   return (
     <div className="col-span-12">
       <div className="bg-gradient-to-r from-primary to-primary-container p-[1px] rounded-2xl">
@@ -26,18 +31,21 @@ export default function SprintStats({
           <div className="flex-1 max-w-md">
             <div className="flex justify-between items-center mb-2">
               <p className="text-xs font-semibold text-on-surface-variant">Sprint Workload Capacity</p>
-              <p className="text-xs font-bold text-primary">{capacity}%</p>
+              <p className="text-xs font-bold text-primary">{capacity > 0 ? 100 : 0}%</p>
             </div>
             <div className="w-full h-2 bg-surface-variant rounded-full overflow-hidden">
               <div
                 className="h-full bg-primary rounded-full transition-all duration-1000"
-                style={{ width: `${capacity}%` }}
+                style={{ width: `${capacity > 0 ? 100 : 0}%` }}
               />
             </div>
           </div>
 
           {/* Right: CTA */}
-          <button className="flex items-center gap-2 px-6 py-3 bg-secondary-container text-on-secondary-container rounded-xl font-bold hover:bg-primary hover:text-white transition-all">
+          <button 
+            onClick={() => navigate(projectId ? `/projects/${projectId}/reports` : "/reports")}
+            className="flex items-center gap-2 px-6 py-3 bg-secondary-container text-on-secondary-container rounded-xl font-bold hover:bg-primary hover:text-white transition-all"
+          >
             <span>Sprint Health</span>
             <span className="material-symbols-outlined">arrow_forward</span>
           </button>

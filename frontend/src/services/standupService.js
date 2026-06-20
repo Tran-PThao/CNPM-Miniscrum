@@ -1,27 +1,16 @@
-import axios from 'axios';
-
-const API_URL = 'http://localhost:5001/api/standups';
-
-const getAuthHeaders = () => {
-    const token = localStorage.getItem('token');
-    return {
-        headers: {
-            Authorization: `Bearer ${token}`
-        }
-    };
-};
+import api from './api';
 
 export const submitStandup = async (projectId, data) => {
-    const response = await axios.post(`${API_URL}/project/${projectId}`, data, getAuthHeaders());
+    const response = await api.post(`/standups/project/${projectId}`, data);
     return response.data;
 };
 
 export const getProjectStandups = async (projectId) => {
-    const response = await axios.get(`${API_URL}/project/${projectId}`, getAuthHeaders());
+    const response = await api.get(`/standups/project/${projectId}`);
     return response.data;
 };
 
 export const checkTodayStandup = async (projectId) => {
-    const response = await axios.get(`${API_URL}/project/${projectId}/me/today`, getAuthHeaders());
+    const response = await api.get(`/standups/project/${projectId}/me/today`);
     return response.data;
 };

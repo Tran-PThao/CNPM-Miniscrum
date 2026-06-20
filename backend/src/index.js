@@ -8,13 +8,59 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const userstoryRoutes = require('./routes/userstoryRoutes');
 const standupRoutes = require('./routes/standupRoutes');
+const multer = require('multer');
+const path = require('path');
+// ... các import khác
+const commentRoutes = require('./routes/commentRoutes');
+const attachmentRoutes = require('./routes/attachmentRoutes');
+const sprintCeremonyRoutes = require('./routes/sprintCeremonyRoutes');
+const sprintSummaryRoutes  = require('./routes/sprintSummaryRoutes');
+
 
 dotenv.config();
 const app = express();
 const prisma = new PrismaClient();
+// Cấu hình CORS cho phép frontend truy cập
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  process.env.FRONTEND_URL,
+].filter(Boolean);
 
-app.use(cors());
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    if (origin.endsWith('.vercel.app')) {
+      return callback(null, true);
+    }
+    callback(new Error('Not allowed by CORS'));
+  },
+  methods: ['GET', 'POST', 'PATCH', 'DELETE', 'PUT', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+}));
+
+//app.use(cors({
+  //origin: function (origin, callback) {
+    // Cho phép tất cả origin trong quá trình dev (bao gồm cả không có origin - Postman, mobile,...)
+    //callback(null, true);
+  //},
+  //methods: ['GET', 'POST', 'PATCH', 'DELETE', 'PUT', 'OPTIONS'],
+  //allowedHeaders: ['Content-Type', 'Authorization'],
+  //credentials: true
+//}));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
+// Đăng ký API
+app.use('/api', commentRoutes);
+app.use('/api/attachments', attachmentRoutes);
+
+
 // Middleware auth (dùng cho tất cả route cần quyền)
 const authMiddleware = (req, res, next) => {
   const token = req.headers.authorization?.split(" ")[1]; // Bearer token
@@ -33,6 +79,10 @@ const authMiddleware = (req, res, next) => {
 
 app.use('/api/user-stories', userstoryRoutes);
 app.use('/api/standups', authMiddleware, standupRoutes);
+app.use('/api/sprints', authMiddleware, sprintCeremonyRoutes);
+// Mô-đun Tổng kết Sprint (End Sprint & Contribution Assessment)
+// Auth được áp dụng bên trong router, không đưa vào đây để tránh chặn /api/login
+app.use('/api', sprintSummaryRoutes);
 
 console.log("🚀 Backend Mini Scrum Management System - Sprint 1 đang chạy...");
 
@@ -44,6 +94,13 @@ app.get("/", (req, res) => {
 // US-001: ĐĂNG KÝ
 app.post("/api/register", async (req, res) => {
   const { email, password, fullName } = req.body;
+  
+  // Validation password strength
+  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+  if (!passwordRegex.test(password)) {
+    return res.status(400).json({ error: "Mật khẩu phải từ 8 ký tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt" });
+  }
+
   try {
     const hashed = await bcrypt.hash(password, 10);
     const user = await prisma.user.create({
@@ -62,10 +119,10 @@ app.post("/api/login", async (req, res) => {
   const { email, password } = req.body;
   try {
     const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) return res.status(404).json({ error: "Email không tồn tại" });
+    if (!user) return res.status(401).json({ error: "Email không tồn tại hoặc sai mật khẩu" });
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ error: "Sai mật khẩu" });
+    if (!isMatch) return res.status(401).json({ error: "Email không tồn tại hoặc sai mật khẩu" });
 
     const token = jwt.sign(
       { userId: user.id, email: user.email, role: user.role },
@@ -138,8 +195,8 @@ app.post("/api/project/:projectId/invite", authMiddleware, async (req, res) => {
       where: { userId_projectId: { userId: requesterId, projectId } },
     });
 
-    if (!requester || requester.role !== "PO") {
-      return res.status(403).json({ error: "Chỉ Product Owner (PO) mới có quyền mời thành viên!" });
+    if (!requester || (requester.role !== "PO" && requester.role !== "SM")) {
+      return res.status(403).json({ error: "Chỉ Product Owner (PO) hoặc Scrum Master (SM) mới có quyền mời thành viên!" });
     }
 
     // Mời thành viên với trạng thái PENDING (dùng upsert để reset nếu họ đã từng ở trong dự án)
@@ -217,6 +274,38 @@ app.get("/api/project/:id", async (req, res) => {
   }
 });
 
+// CẬP NHẬT PROJECT (US-036 - Extend)
+app.patch("/api/project/:id", authMiddleware, async (req, res) => {
+  const { id } = req.params;
+  const { name, description, goal } = req.body;
+  const userId = req.user.userId;
+
+  try {
+    // Kiểm tra quyền (CHỈ PO hoặc SM)
+    const member = await prisma.projectMember.findUnique({
+      where: { userId_projectId: { userId, projectId: id } },
+    });
+
+    if (!member || (member.role !== "PO" && member.role !== "SM")) {
+      return res.status(403).json({ error: "Bạn không có quyền chỉnh sửa thông tin dự án này." });
+    }
+
+    const updatedProject = await prisma.project.update({
+      where: { id },
+      data: {
+        name: name || undefined,
+        description: description !== undefined ? description : undefined,
+        goal: goal !== undefined ? goal : undefined,
+      },
+    });
+
+    res.json({ message: "Cập nhật dự án thành công", project: updatedProject });
+  } catch (err) {
+    console.error("Update project error:", err);
+    res.status(500).json({ error: "Lỗi khi cập nhật dự án" });
+  }
+});
+
 // TẠO PROJECT (US-036)
 app.post("/api/project", authMiddleware, async (req, res) => {
   const { name, description, goal } = req.body;
@@ -251,9 +340,9 @@ app.post("/api/project/:projectId/members", async (req, res) => {
       },
     });
 
-    if (!requester || requester.role !== "PO") {
+    if (!requester || (requester.role !== "PO" && requester.role !== "SM")) {
       return res.status(403).json({
-        error: "Chỉ Product Owner (PO) mới có quyền thêm thành viên!",
+        error: "Chỉ Product Owner (PO) hoặc Scrum Master (SM) mới có quyền thêm thành viên!",
       });
     }
 
@@ -375,11 +464,11 @@ app.patch("/api/userstory/:id", authMiddleware, async (req, res) => {
     // Or just checkPOorSM generally. Let's just check PO or SM, except maybe status.
     // wait, member moving card on board modifies status. So if hasPermission is false, and ONLY status is present, allow it!
     if (!hasPermission) {
-       const protectedFields = ["title", "description", "priority", "storyPoints", "assigneeId"];
-       const updatingProtected = protectedFields.some(field => req.body[field] !== undefined);
-       if(updatingProtected) {
-          return res.status(403).json({ error: "Bạn không có quyền sửa đổi thông tin chính của User Story." });
-       }
+      const protectedFields = ["title", "description", "priority", "storyPoints", "assigneeId"];
+      const updatingProtected = protectedFields.some(field => req.body[field] !== undefined);
+      if (updatingProtected) {
+        return res.status(403).json({ error: "Bạn không có quyền sửa đổi thông tin chính của User Story." });
+      }
     }
 
     const updated = await prisma.userStory.update({
@@ -435,9 +524,9 @@ app.get("/api/userstory/:id", async (req, res) => {
   try {
     const story = await prisma.userStory.findUnique({
       where: { id: req.params.id },
-      include: { 
-        project: true, 
-        assignee: { select: { fullName: true, email: true } },
+      include: {
+        project: true,
+        assignee: { select: { fullName: true, email: true, avatar: true } },
         comments: {
           include: { user: { select: { fullName: true, email: true } } },
           orderBy: { createdAt: "asc" }
@@ -454,6 +543,7 @@ app.get("/api/userstory/:id", async (req, res) => {
 // US-045: LẤY BÌNH LUẬN CỦA USER STORY
 app.get("/api/userstory/:id/comments", async (req, res) => {
   try {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     const comments = await prisma.comment.findMany({
       where: { userStoryId: req.params.id },
       include: { user: { select: { fullName: true, email: true } } },
@@ -469,7 +559,7 @@ app.get("/api/userstory/:id/comments", async (req, res) => {
 app.post("/api/userstory/:id/comments", authMiddleware, async (req, res) => {
   const { content } = req.body;
   if (!content) return res.status(400).json({ error: "Nội dung bình luận không được để trống" });
-  
+
   try {
     const comment = await prisma.comment.create({
       data: {
@@ -495,12 +585,12 @@ app.get("/api/project/:projectId/userstories", async (req, res) => {
         { backlogOrder: "asc" },
         { title: "asc" }
       ],
-      include: { 
-        assignee: { select: { fullName: true, email: true } },
+      include: {
+        assignee: { select: { fullName: true, email: true, avatar: true } },
         comments: { select: { id: true } },
-        tasks: { 
+        tasks: {
           orderBy: { createdAt: "asc" },
-          include: { assignee: { select: { id: true, fullName: true, email: true } } }
+          include: { assignee: { select: { id: true, fullName: true, email: true, avatar: true } } }
         }
       }
     });
@@ -521,17 +611,17 @@ app.get("/api/project/:projectId/sprints", authMiddleware, async (req, res) => {
     const sprints = await prisma.sprint.findMany({
       where: { projectId },
       orderBy: { createdAt: "asc" },
-      include: { 
-        stories: { 
-          include: { 
-            assignee: { select: { fullName: true, email: true } },
+      include: {
+        stories: {
+          include: {
+            assignee: { select: { fullName: true, email: true, avatar: true } },
             comments: { select: { id: true } },
-            tasks: { 
-              include: { assignee: { select: { id: true, fullName: true, email: true } } },
-              orderBy: { createdAt: "asc" } 
-            } 
-          } 
-        } 
+            tasks: {
+              include: { assignee: { select: { id: true, fullName: true, email: true, avatar: true } } },
+              orderBy: { createdAt: "asc" }
+            }
+          }
+        }
       }
     });
     res.json(sprints);
@@ -571,16 +661,16 @@ app.get("/api/sprint/:id", authMiddleware, async (req, res) => {
   try {
     const sprint = await prisma.sprint.findUnique({
       where: { id },
-      include: { 
-        stories: { 
-          include: { 
-            assignee: { select: { fullName: true, email: true } },
-            tasks: { 
-              include: { assignee: { select: { id: true, fullName: true, email: true } } },
-              orderBy: { createdAt: "asc" } 
+      include: {
+        stories: {
+          include: {
+            assignee: { select: { fullName: true, email: true, avatar: true } },
+            tasks: {
+              include: { assignee: { select: { id: true, fullName: true, email: true, avatar: true } } },
+              orderBy: { createdAt: "asc" }
             }
-          } 
-        } 
+          }
+        }
       }
     });
     if (!sprint) return res.status(404).json({ error: "Không tìm thấy Sprint" });
@@ -607,24 +697,24 @@ app.patch("/api/sprint/:id", authMiddleware, async (req, res) => {
       return res.status(403).json({ error: "Bạn không có quyền cập nhật Sprint." });
     }
 
-    // == US-049: Kiểm tra xung đột và quyền hạn khi Bắt đầu Sprint (Start Sprint) ==
-    if (status === 'ACTIVE' && sprint.status !== 'ACTIVE') {
-      if (member.role !== "SM" && member.role !== "PO") {
-        return res.status(403).json({ error: "Chỉ Scrum Master hoặc Product Owner (Chủ dự án) mới có quyền bắt đầu Sprint!" });
-      }
+      // == US-049: Kiểm tra xung đột và quyền hạn khi Bắt đầu Sprint (Start Sprint) ==
+      if (status === 'ACTIVE' && sprint.status !== 'ACTIVE') {
+        if (member.role !== "SM" && member.role !== "PO") {
+          return res.status(403).json({ error: "Chỉ Scrum Master hoặc Product Owner (Chủ dự án) mới có quyền bắt đầu Sprint!" });
+        }
 
-      // BẮT BUỘC PHẢI CÓ END DATE KHI BẮT ĐẦU SPRINT
-      if (!endDate && !sprint.endDate) {
-        return res.status(400).json({ error: "Vui lòng thiết lập ngày kết thúc cho Sprint trước khi bắt đầu!" });
-      }
+        // BẮT BUỘC PHẢI CÓ END DATE KHI BẮT ĐẦU SPRINT
+        if (!endDate && !sprint.endDate) {
+          return res.status(400).json({ error: "Vui lòng thiết lập ngày kết thúc cho Sprint trước khi bắt đầu!" });
+        }
 
-      const activeSprint = await prisma.sprint.findFirst({
-        where: { projectId: sprint.projectId, status: 'ACTIVE' }
-      });
-      if (activeSprint) {
-        return res.status(400).json({ error: `Dự án hiện đã có một Sprint đang hoạt động (${activeSprint.name}). Vui lòng kết thúc nó trước khi bắt đầu Sprint mới.` });
+        const activeSprint = await prisma.sprint.findFirst({
+          where: { projectId: sprint.projectId, status: 'ACTIVE' }
+        });
+        if (activeSprint) {
+          return res.status(400).json({ error: `Dự án hiện đã có một Sprint đang hoạt động (${activeSprint.name}). Vui lòng kết thúc nó trước khi bắt đầu Sprint mới.` });
+        }
       }
-    }
 
     // == US-050: Logic kết thúc Sprint (Complete Sprint) ==
     if (status === 'COMPLETED' && sprint.status === 'ACTIVE') {
@@ -656,7 +746,7 @@ app.patch("/api/sprint/:id", authMiddleware, async (req, res) => {
       data: {
         name: name !== undefined ? name : undefined,
         goal: goal !== undefined ? goal : undefined,
-        startDate: startDate ? new Date(startDate) : undefined,
+        startDate: (status === 'ACTIVE' && !startDate && !sprint.startDate) ? new Date() : (startDate ? new Date(startDate) : undefined),
         endDate: endDate ? new Date(endDate) : undefined,
         status: status !== undefined ? status : undefined,
       }
@@ -690,17 +780,22 @@ app.get("/api/project/:projectId/dashboard", async (req, res) => {
     const done = stories.filter(s => s.status === 'DONE').length;
     const inProgress = stories.filter(s => s.status === 'IN_PROGRESS').length;
     const todo = stories.filter(s => s.status === 'TODO').length;
-    
+    const rejected = stories.filter(s => s.status === 'REJECTED').length;
+
     // Sum storyPoints properly
     const completedPoints = stories.filter(s => s.status === 'DONE').reduce((sum, s) => sum + (s.storyPoints || 0), 0);
     const totalPoints = stories.reduce((sum, s) => sum + (s.storyPoints || 0), 0);
-    const progressPercentage = total > 0 ? Math.round((done / total) * 100) : 0;
-    
+
+    // Only count stories that are NOT rejected for progress percentage
+    const totalActive = total - rejected;
+    const progressPercentage = totalActive > 0 ? Math.round((done / totalActive) * 100) : 0;
+
     res.json({
       totalStories: total,
       completedStories: done,
       inProgressStories: inProgress,
       todoStories: todo,
+      rejectedStories: rejected,
       completedPoints,
       totalPoints,
       progressPercentage
@@ -741,25 +836,52 @@ app.get("/api/analytics/:projectId/sprint/:sprintId/burndown", authMiddleware, a
 
     const start = new Date(sprint.startDate);
     const end = new Date(sprint.endDate);
-    const days = [];
-    let curr = new Date(start);
-    while (curr <= end) {
-      days.push(new Date(curr));
-      curr.setDate(curr.getDate() + 1);
-    }
-    // Đảm bảo include ngày cuối nếu chưa có
-    if (days[days.length - 1] < end) days.push(new Date(end));
+
+    const getLocalDateString = (date) => {
+      const d = new Date(date);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
+    const startStr = getLocalDateString(start);
+    const endStr = getLocalDateString(end);
+
+    const sDate = new Date(startStr + 'T00:00:00');
+    const eDate = new Date(endStr + 'T00:00:00');
+
+    // Calculate inclusive calendar days duration
+    const diffTime = Math.abs(eDate - sDate);
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+    const totalDays = diffDays + 1;
 
     const totalPoints = sprint.stories.reduce((sum, s) => sum + (s.storyPoints || 0), 0);
-    const data = days.map(day => {
-      const dayStr = day.toISOString().split('T')[0];
-      
-      // Tính toán số điểm còn lại tính tới cuối ngày này
+    const data = [];
+
+    // Day 0: Start of Sprint
+    const startMonth = start.getMonth() + 1;
+    const startDay = start.getDate();
+    data.push({
+      date: startStr,
+      displayDate: `${startDay}/${startMonth} (Bắt đầu)`,
+      actual: totalPoints,
+      ideal: totalPoints
+    });
+
+    let curr = new Date(sDate);
+    let dayIdx = 1;
+
+    while (curr <= eDate) {
+      const currStr = getLocalDateString(curr);
+      const endOfDayLimit = new Date(currStr + 'T23:59:59.999');
+
+      // Calculate remaining points at the end of this day
       let remainingPoints = totalPoints;
       sprint.stories.forEach(story => {
-        // Tìm lịch sử chuyển sang DONE trước hoặc trong ngày này
+        // Find if story was completed on or before this day
         const doneHistory = story.statusHistory
-          .filter(h => h.status === 'DONE' && new Date(h.changedAt) <= day)
+          .filter(h => h.status === 'DONE' && new Date(h.changedAt) <= endOfDayLimit)
           .sort((a, b) => new Date(b.changedAt) - new Date(a.changedAt))[0];
 
         if (doneHistory) {
@@ -768,16 +890,21 @@ app.get("/api/analytics/:projectId/sprint/:sprintId/burndown", authMiddleware, a
       });
 
       // Ideal line calculation
-      const totalDays = (end - start) / (1000 * 60 * 60 * 24);
-      const daysPassed = (day - start) / (1000 * 60 * 60 * 24);
-      const ideal = Math.max(0, totalPoints - (totalPoints / totalDays) * daysPassed);
+      const ideal = Math.max(0, totalPoints - (totalPoints / totalDays) * dayIdx);
 
-      return {
-        date: dayStr,
+      const currMonth = curr.getMonth() + 1;
+      const currDay = curr.getDate();
+
+      data.push({
+        date: currStr,
+        displayDate: `${currDay}/${currMonth}`,
         actual: remainingPoints,
         ideal: parseFloat(ideal.toFixed(2))
-      };
-    });
+      });
+
+      curr.setDate(curr.getDate() + 1);
+      dayIdx++;
+    }
 
     res.json(data);
   } catch (err) {
@@ -975,11 +1102,66 @@ app.get("/api/project/:projectId/members", authMiddleware, async (req, res) => {
   try {
     const members = await prisma.projectMember.findMany({
       where: { projectId },
-      include: { user: { select: { id: true, email: true, fullName: true } } },
+      include: { user: { select: { id: true, email: true, fullName: true, avatar: true } } },
     });
     res.json(members);
   } catch (err) {
     res.status(500).json({ error: "Lỗi khi lấy danh sách thành viên" });
+  }
+});
+
+// TÌM KIẾM TASK VÀ STORY TRONG PROJECT
+app.get("/api/project/:projectId/search-tasks", authMiddleware, async (req, res) => {
+  const { projectId } = req.params;
+  const { q } = req.query;
+  try {
+    if (q && q.trim()) {
+      const queryStr = q.trim();
+      const stories = await prisma.userStory.findMany({
+        where: {
+          projectId,
+          title: { contains: queryStr }
+        },
+        take: 5,
+        orderBy: { updatedAt: 'desc' }
+      });
+      const tasks = await prisma.task.findMany({
+        where: {
+          userStory: { projectId },
+          title: { contains: queryStr }
+        },
+        include: {
+          userStory: {
+            select: { id: true, title: true }
+          }
+        },
+        take: 5,
+        orderBy: { updatedAt: 'desc' }
+      });
+      res.json({ stories, tasks });
+    } else {
+      const recentStories = await prisma.userStory.findMany({
+        where: { projectId },
+        take: 2,
+        orderBy: { updatedAt: 'desc' }
+      });
+      const recentTasks = await prisma.task.findMany({
+        where: {
+          userStory: { projectId }
+        },
+        include: {
+          userStory: {
+            select: { id: true, title: true }
+          }
+        },
+        take: 2,
+        orderBy: { updatedAt: 'desc' }
+      });
+      res.json({ stories: recentStories, tasks: recentTasks });
+    }
+  } catch (err) {
+    console.error("Search error:", err);
+    res.status(500).json({ error: "Lỗi tìm kiếm: " + err.message });
   }
 });
 
@@ -992,8 +1174,8 @@ app.patch("/api/project/:projectId/members/:userId/role", authMiddleware, async 
     const requester = await prisma.projectMember.findUnique({
       where: { userId_projectId: { userId: requesterId, projectId } },
     });
-    if (!requester || requester.role !== "PO") {
-      return res.status(403).json({ error: "Chỉ PO mới được phân quyền!" });
+    if (!requester || (requester.role !== "PO" && requester.role !== "SM")) {
+      return res.status(403).json({ error: "Chỉ PO hoặc SM mới được phân quyền!" });
     }
     if (requesterId === userId) {
       return res.status(400).json({ error: "Không thể đổi role của chính mình!" });
@@ -1188,7 +1370,7 @@ app.patch("/api/tasks/:id/assign", authMiddleware, async (req, res) => {
   try {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) return res.status(404).json({ error: "Không tìm thấy user với email này" });
-    
+
     const updated = await prisma.task.update({
       where: { id: req.params.id },
       data: { assigneeId: user.id }
@@ -1233,6 +1415,7 @@ app.get("/api/userstory/:storyId/tasks", authMiddleware, async (req, res) => {
 app.get("/api/tasks/:taskId/comments", async (req, res) => {
   const { taskId } = req.params;
   try {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     const comments = await prisma.comment.findMany({
       where: { taskId: taskId },
       include: { user: { select: { fullName: true, email: true } } },
@@ -1248,7 +1431,7 @@ app.get("/api/tasks/:taskId/comments", async (req, res) => {
 app.post("/api/tasks/:taskId/comments", authMiddleware, async (req, res) => {
   const { taskId } = req.params;
   const { content } = req.body;
-  
+
   if (!content) return res.status(400).json({ error: "Nội dung không được để trống" });
 
   try {
@@ -1266,6 +1449,130 @@ app.post("/api/tasks/:taskId/comments", authMiddleware, async (req, res) => {
     res.status(500).json({ error: "Lỗi khi lưu bình luận cho Task" });
   }
 });
+
+// === USER PROFILE & SETTINGS API ===
+
+const avatarStorage = multer.diskStorage({
+  destination: 'uploads/',
+  filename: (req, file, cb) => {
+    cb(null, 'avatar-' + Date.now() + path.extname(file.originalname));
+  }
+});
+
+const avatarUpload = multer({
+  storage: avatarStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    if (extname && mimetype) {
+      return cb(null, true);
+    }
+    cb(new Error("Chỉ chấp nhận định dạng file ảnh .jpg, .jpeg, .png!"));
+  }
+}).single('avatar');
+
+// GET Profile
+app.get("/api/user/profile", authMiddleware, async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.userId },
+      select: { id: true, email: true, fullName: true, role: true, avatar: true }
+    });
+    if (!user) return res.status(404).json({ error: "Không tìm thấy người dùng" });
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ error: "Lỗi máy chủ khi lấy thông tin người dùng" });
+  }
+});
+
+// PATCH Profile (Họ tên + Avatar)
+app.patch("/api/user/profile", authMiddleware, (req, res) => {
+  avatarUpload(req, res, async (err) => {
+    if (err) {
+      return res.status(400).json({ error: err.message });
+    }
+    
+    const { fullName } = req.body;
+    const updateData = {};
+    
+    if (fullName !== undefined) {
+      if (!fullName || fullName.trim() === '') {
+        return res.status(400).json({ error: "Họ và tên không được để trống" });
+      }
+      
+      // Kiểm tra ký tự đặc biệt (@, #, $, ...)
+      const specialCharRegex = /[@#\$%\^&\*\(\)\+=\{\}\[\]\<\>\?\/\\\|~`_]/;
+      if (specialCharRegex.test(fullName)) {
+        return res.status(400).json({ error: "Họ và tên không được chứa ký tự đặc biệt (@, #, $, ...)" });
+      }
+      updateData.fullName = fullName.trim();
+    }
+    
+    if (req.file) {
+      updateData.avatar = `/uploads/${req.file.filename}`;
+    }
+    
+    try {
+      const updatedUser = await prisma.user.update({
+        where: { id: req.user.userId },
+        data: updateData,
+        select: { id: true, email: true, fullName: true, role: true, avatar: true }
+      });
+      res.json({ message: "Cập nhật thông tin cá nhân thành công!", user: updatedUser });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: "Lỗi máy chủ khi cập nhật thông tin" });
+    }
+  });
+});
+
+// POST Change Password
+app.post("/api/user/change-password", authMiddleware, async (req, res) => {
+  const { currentPassword, newPassword, confirmPassword } = req.body;
+  
+  if (!currentPassword || !newPassword || !confirmPassword) {
+    return res.status(400).json({ error: "Vui lòng điền đầy đủ tất cả các trường mật khẩu" });
+  }
+  
+  if (newPassword !== confirmPassword) {
+    return res.status(400).json({ error: "Mật khẩu xác nhận không khớp" });
+  }
+  
+  // Validate new password strength (at least 8 chars, letter + number)
+  const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
+  if (!passwordRegex.test(newPassword)) {
+    return res.status(400).json({ error: "Mật khẩu mới phải từ 8 ký tự trở lên, bao gồm cả chữ và số" });
+  }
+  
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.userId }
+    });
+    
+    if (!user) {
+      return res.status(404).json({ error: "Không tìm thấy người dùng" });
+    }
+    
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ error: "Mật khẩu hiện tại không chính xác" });
+    }
+    
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await prisma.user.update({
+      where: { id: req.user.userId },
+      data: { password: hashed }
+    });
+    
+    res.json({ message: "Đổi mật khẩu thành công!" });
+  } catch (err) {
+    console.error("Change password error:", err);
+    res.status(500).json({ error: "Lỗi máy chủ khi đổi mật khẩu" });
+  }
+});
+
 // === NOTIFICATION API ===
 
 // Lấy danh sách thông báo
@@ -1294,8 +1601,12 @@ app.patch("/api/notifications/:id/read", authMiddleware, async (req, res) => {
     res.status(500).json({ error: "Lỗi cập nhật thông báo" });
   }
 });
+
+// Cho phép truy cập file tĩnh để xem/tải về (duplicate đã loại bỏ, dùng route file attachmentRoutes)
+
+
 // Lắng nghe cổng
-const PORT = process.env.PORT || 5001;
+const PORT = process.env.PORT || 5000;
 const server = http.createServer(app);
 initSocket(server, prisma);
 server.listen(PORT, '0.0.0.0', () => {

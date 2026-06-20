@@ -5,7 +5,8 @@ export default function CreateTaskModal({
   onClose, 
   onSubmit, 
   loading, 
-  storyTitle 
+  storyTitle,
+  userRole = 'MEMBER'
 }) {
   const [form, setForm] = useState({
     title: '',
@@ -25,6 +26,8 @@ export default function CreateTaskModal({
     e.preventDefault();
     onSubmit(form);
   };
+
+  const canSetDeadline = true; // Tất cả mọi người đều phải chọn hạn chót
 
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
@@ -75,17 +78,23 @@ export default function CreateTaskModal({
 
           {/* Deadline */}
           <div className="space-y-1.5">
-            <label className="text-sm font-bold text-on-surface-variant flex items-center gap-1.5">
+            <label className="text-sm font-bold flex items-center gap-1.5 text-on-surface-variant">
               <span className="material-symbols-outlined text-[18px]">calendar_today</span>
-              Hạn chót
+              Hạn chót <span className="text-error">*</span>
             </label>
-            <input
-              type="date"
-              className="w-full px-4 py-3 rounded-xl border border-outline-variant bg-surface-container-lowest focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none text-sm"
-              value={form.dueDate}
-              onChange={e => setForm({ ...form, dueDate: e.target.value })}
-              disabled={loading}
-            />
+            <div className="relative">
+              <input
+                type="date"
+                required
+                className="w-full px-4 py-3 rounded-xl border border-outline-variant bg-surface-container-lowest focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none text-sm disabled:bg-surface-container-low disabled:cursor-not-allowed appearance-none min-h-[48px]"
+                value={form.dueDate}
+                onChange={e => setForm({ ...form, dueDate: e.target.value })}
+                disabled={loading}
+              />
+              <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant/50 pointer-events-none md:hidden">
+                calendar_month
+              </span>
+            </div>
           </div>
 
           {/* Buttons */}
@@ -101,7 +110,7 @@ export default function CreateTaskModal({
             <button
               type="submit"
               className="flex-1 py-2.5 rounded-xl font-bold bg-primary text-on-primary shadow-lg hover:bg-primary/90 transition-all text-sm disabled:opacity-50"
-              disabled={loading || !form.title.trim()}
+              disabled={loading || !form.title.trim() || !form.dueDate}
             >
               {loading ? 'Đang tạo...' : 'Tạo Task'}
             </button>

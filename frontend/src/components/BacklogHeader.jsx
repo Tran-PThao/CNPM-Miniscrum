@@ -8,62 +8,43 @@ const contributors = [
   "https://lh3.googleusercontent.com/aida-public/AB6AXuDWUv8ag8Ox6wV7LQsCZTxFF7M6HZZckWo2lB5eRcc-oVRqQAH8sjtJfok4ucJKXF7KbqM2YsQY2ZUsY6e7SEsuOf5YHdBher7ZzL5u1tkubJeBgh_Pdrjaw1s2sCQZHJ8Rqq5UMLMzDe2TxvcKQinrid75GK_QGdmOoXV93LXse9D0m1YxL-7ZelfC1JUwFK6bu_yRFgs8I-q2yVKEehXQOgB8Z-K9URExl7dR6oWy__qW5GRfX3dcNkIyqPRLyEH2STRC1LHWYLc",
 ];
 
-export default function BacklogHeader({ daysLeft = 6, contributorCount = 12, projectId, projectName }) {
+export default function BacklogHeader({ contributorCount = 12, projectId, projectName }) {
   const { toggle } = useSidebar();
   const navigate = useNavigate();
 
   return (
-    <header className="flex justify-between items-center w-full mb-8 md:mb-12 gap-4">
-      {/* Left: Menu + Title + Contributors */}
-      <div className="flex items-start gap-3">
+    <header className="flex justify-between items-center w-full px-4 md:px-8 py-4 md:py-6 mb-4 md:mb-8 gap-3 safe-area-right">
+      {/* Left: Menu + Title */}
+      <div className="flex items-center gap-3 min-w-0 flex-1">
         <button 
           onClick={toggle}
-          className="p-2 -ml-2 mt-1 text-[#44474e] hover:bg-[#f1f3f8] rounded-full transition-colors md:hidden"
+          className="p-2 -ml-2 text-[#44474e] hover:bg-[#f1f3f8] rounded-full transition-colors md:hidden flex-shrink-0"
         >
           <span className="material-symbols-outlined">menu</span>
         </button>
-        <div className="flex flex-col">
-          <h2 className="font-['Manrope'] font-bold text-2xl md:text-3xl text-on-surface tracking-tighter">
+        <div className="flex flex-col min-w-0">
+          <h2 className="font-['Manrope'] font-bold text-2xl md:text-3xl text-on-surface leading-tight truncate">
             {projectName || "Project Backlog"}
           </h2>
-          <div className="flex items-center mt-2 gap-4">
-            <div className="flex -space-x-2">
-              {contributors.map((src, i) => (
-                <img
-                  key={i}
-                  className="w-8 h-8 rounded-full border-2 border-surface"
-                  src={src}
-                  alt={`contributor ${i + 1}`}
-                />
-              ))}
-            </div>
-            <span className="text-on-surface-variant text-sm font-medium">
-              {contributorCount} contributors
-            </span>
-          </div>
         </div>
       </div>
 
-      {/* Right: Timer + Actions */}
-      <div className="flex items-center gap-3">
-        <div className="bg-surface-container-low px-4 py-2 rounded-full flex items-center gap-2">
-          <span className="material-symbols-outlined text-on-surface-variant text-sm md:text-base">timer</span>
-          <span className="text-xs md:text-sm font-medium text-on-surface whitespace-nowrap">{daysLeft} days left</span>
-        </div>
-        
-        {/* Nút Manage Team mới */}
+      {/* Right: Actions Container - Always visible, safe from scrollbar */}
+      <div className="flex items-center gap-2.5 md:gap-3 flex-shrink-0 pr-2">
+        {/* Nút Manage Team */}
         {projectId && (
           <button 
             onClick={() => navigate(`/projects/${projectId}/members`)}
-            className="p-2.5 rounded-xl bg-primary text-on-primary hover:scale-[0.98] shadow-md transition-all flex items-center gap-2 font-bold text-xs"
+            className="p-2.5 rounded-xl bg-primary text-on-primary hover:scale-[0.98] active:scale-95 shadow-md transition-all flex items-center justify-center flex-shrink-0"
             title="Quản lý thành viên"
           >
             <span className="material-symbols-outlined text-lg">group_add</span>
-            <span className="hidden lg:inline">Quản lý Team</span>
+            <span className="hidden lg:inline ml-2 font-bold text-xs whitespace-nowrap">Quản lý Team</span>
           </button>
         )}
 
-        <div className="hidden sm:block">
+        {/* Notification Bell - Visible on all sizes */}
+        <div className="flex-shrink-0">
           <NotificationBell />
         </div>
       </div>

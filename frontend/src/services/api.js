@@ -1,7 +1,8 @@
+//frontend/src/services/api.js
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: `http://${window.location.hostname}:5001/api`,
+  baseURL: import.meta.env.VITE_API_URL || `http://${window.location.hostname}:5000/api`,
   headers: { 'Content-Type': 'application/json' },
 });
 
@@ -17,9 +18,12 @@ api.interceptors.request.use((config) => {
 });
 
 export const registerUser = (data) => api.post('/register', data);
+export const loginUser = (data) => api.post('/login', data);
 
 export const addMemberToProject = (projectId, data) =>
   api.post(`/project/${projectId}/members`, data);
+
+export const updateProject = (id, data) => api.patch(`/project/${id}`, data);
 
 export const getUserStory = (id) => api.get(`/userstory/${id}`);
 export const createUserStory = (data) => api.post('/userstory', data);
@@ -46,12 +50,28 @@ export const deleteTask = (id) => api.delete(`/tasks/${id}`);
 export const getStoryTasks = (storyId) => api.get(`/userstory/${storyId}/tasks`);
 
 // COMMENTS
-export const getStoryComments = (storyId) => api.get(`/userstory/${storyId}/comments`);
+export const getStoryComments = (storyId) => api.get(`/userstory/${storyId}/comments?t=${Date.now()}`);
 export const createStoryComment = (storyId, content) => api.post(`/userstory/${storyId}/comments`, { content });
-
+// TASK COMMENTS (US-046)
+export const getTaskComments = (taskId) => api.get(`/tasks/${taskId}/comments?t=${Date.now()}`);
+export const createTaskComment = (taskId, content) => api.post(`/tasks/${taskId}/comments`, { content });
 // LỜI MỜI
 export const getInvitations = () => api.get('/invitations');
 export const respondToInvitation = (id, action) => api.post(`/invitations/${id}/respond`, { action });
+
+export const uploadAttachment = (formData) => {
+  return api.post('/attachments/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+};
+
+export const getAttachments = (entityType, entityId) => {
+  return api.get(`/attachments?${entityType}Id=${entityId}`);
+};
+// Thêm hàm này vào api.js
+export const deleteAttachment = (id) => {
+  return api.delete(`/attachments/${id}`);
+};
 
 // MEMBERS
 export const getProjectMembers = (projectId) => api.get(`/project/${projectId}/members`);
@@ -67,4 +87,24 @@ export const saveSprintRetrospective = (sprintId, data) => api.put(`/sprints/${s
 // NOTIFICATIONS
 export const getNotifications = () => api.get('/notifications');
 export const markNotificationAsRead = (id) => api.patch(`/notifications/${id}/read`);
+
+// USER SETTINGS
+export const getUserProfile = () => api.get('/user/profile');
+export const updateUserProfile = (formData) => api.patch('/user/profile', formData, {
+  headers: { 'Content-Type': 'multipart/form-data' }
+});
+export const changePassword = (data) => api.post('/user/change-password', data);
+
+// AVATAR HELPER
+export const getAvatarUrl = (avatarPath) => {
+  if (!avatarPath) return null;
+  if (avatarPath.startsWith('http://') || avatarPath.startsWith('https://') || avatarPath.startsWith('data:')) {
+    return avatarPath;
+  }
+  const backendBase = import.meta.env.VITE_API_URL 
+    ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '') 
+    : `http://${window.location.hostname}:5000`;
+  return `${backendBase}${avatarPath}`;
+};
+
 export default api;

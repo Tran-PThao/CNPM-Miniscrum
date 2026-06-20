@@ -2,7 +2,7 @@
 import { useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 
-const SOCKET_URL = `http://${window.location.hostname}:5001`;
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || `http://${window.location.hostname}:5000`;
 let socket = null;
 
 export const getSocket = () => {
@@ -61,11 +61,13 @@ export default function useSocket(projectId, onDataChanged) {
     // Lắng nghe sự kiện
     s.on('userStory:changed', handleChange);
     s.on('task:changed', handleChange);
+    s.on('comment:changed', handleChange);
 
     return () => {
       console.log(`Cleaning up socket listeners for ${projectId}`);
       s.off('userStory:changed', handleChange);
       s.off('task:changed', handleChange);
+      s.off('comment:changed', handleChange);
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, [projectId]);

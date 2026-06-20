@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import api from "../services/api";
+import { toast } from "react-hot-toast";
 
-function CreateProject() {
+export default function CreateProject() {
   const [form, setForm] = useState({ name: "", description: "", goal: "" });
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
@@ -12,169 +12,115 @@ function CreateProject() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true); setMessage(""); setError("");
+    setLoading(true);
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(`http://${window.location.hostname}:5001/api/project`, {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify(form),
-      });
-      const data = await res.json();
-      if (!res.ok) { setError(data.error || "Tạo project thất bại"); return; }
-      setMessage("Tạo dự án thành công!");
-      setForm({ name: "", description: "", goal: "" });
+      const res = await api.post("/project", form);
+      toast.success("Tạo dự án thành công!");
       setTimeout(() => navigate("/dashboard"), 1500);
-    } catch {
-      setError("Không thể kết nối server");
+    } catch (err) {
+      toast.error(err.response?.data?.error || "Không thể tạo dự án. Vui lòng thử lại.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={s.page}>
-      <nav style={s.nav}>
-        <div style={s.navLeft}>
-          <div style={s.logoWrap}>
-            <div style={s.logoIcon}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                <path d="M12 2L4 7v10l8 5 8-5V7L12 2z" fill="#fff" opacity="0.9"/>
-                <path d="M12 2L4 7l8 5 8-5-8-5z" fill="#fff"/>
-              </svg>
-            </div>
-            <span style={s.logoText}>Mini Scrum</span>
+    <div className="min-h-screen bg-surface-container-lowest font-['Inter']">
+      <nav className="bg-surface-container h-16 flex items-center justify-between px-6 border-b border-outline-variant/10 sticky top-0 z-50">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-on-primary">
+            <span className="material-symbols-outlined text-lg">rocket_launch</span>
           </div>
+          <span className="font-bold text-on-surface tracking-tight hidden sm:inline">Mini Scrum • Khởi tạo Dự án</span>
         </div>
-        <button style={s.backBtn} onClick={() => navigate("/dashboard")}>← Quay về Dashboard</button>
+        <button 
+          onClick={() => navigate("/dashboard")}
+          className="px-4 py-2 bg-surface text-primary border border-primary/20 rounded-xl text-xs font-bold hover:bg-primary/5 transition-all"
+        >
+          ← Quay về Dashboard
+        </button>
       </nav>
 
-      <main style={s.main}>
-        <div style={s.breadcrumb}>
-          <span style={s.breadcrumbLink} onClick={() => navigate("/dashboard")}>Dự án</span>
-          <span style={s.breadcrumbSep}>/</span>
-          <span style={s.breadcrumbCurrent}>Tạo dự án mới</span>
-        </div>
-
-        <div style={s.card}>
-          <div style={s.cardTop}>
-            <div style={s.cardIcon}>📋</div>
-            <div>
-              <h1 style={s.cardTitle}>Tạo dự án mới</h1>
-              <p style={s.cardSubtitle}>Điền thông tin để khởi tạo dự án Scrum của bạn</p>
+      <main className="max-w-3xl mx-auto py-8 md:py-16 px-4 md:px-6">
+        <div className="bg-white rounded-[2rem] md:rounded-[3rem] shadow-2xl shadow-surface-variant/5 border border-outline-variant/10 overflow-hidden">
+          <div className="p-8 md:p-12 border-b border-outline-variant/10 bg-surface-container-low">
+            <div className="flex flex-col md:flex-row md:items-center gap-6">
+              <div className="w-16 h-16 md:w-20 md:h-20 bg-primary/10 rounded-[1.5rem] flex items-center justify-center text-primary">
+                <span className="material-symbols-outlined text-3xl md:text-4xl">add_chart</span>
+              </div>
+              <div className="flex-1">
+                <h1 className="text-3xl md:text-4xl font-extrabold text-on-surface tracking-tighter mb-2">Tạo dự án mới</h1>
+                <p className="text-sm md:text-base text-on-surface-variant font-medium opacity-70">
+                  Thiết lập không gian làm việc Scrum chuẩn cho đội ngũ của bạn.
+                </p>
+              </div>
             </div>
           </div>
 
-          {error && <div style={s.errorBox}><span>⚠</span> {error}</div>}
-          {message && <div style={s.successBox}><span>✓</span> {message}</div>}
+          <div className="p-8 md:p-12">
+            <form onSubmit={handleSubmit} className="space-y-8">
+              <div className="space-y-3">
+                <label className="block text-xs font-black text-primary uppercase tracking-widest px-1">Tên dự án <span className="text-error">*</span></label>
+                <input
+                  name="name" 
+                  value={form.name} 
+                  onChange={handleChange}
+                  placeholder="Ví dụ: My Awesome Startup"
+                  className="w-full bg-surface-container-low px-6 py-4 rounded-2xl border border-outline-variant/10 focus:border-primary focus:ring-4 focus:ring-primary/5 outline-none transition-all text-sm font-bold text-on-surface placeholder:text-on-surface-variant/30"
+                  required 
+                  disabled={loading}
+                />
+              </div>
 
-          <form onSubmit={handleSubmit} style={s.form}>
-            <div style={s.fieldGroup}>
-              <label style={s.label}>Tên dự án <span style={s.required}>*</span></label>
-              <input
-                name="name" placeholder="VD: Mini Scrum Management System"
-                value={form.name} onChange={handleChange}
-                style={s.input} required disabled={loading}
-              />
-            </div>
-            <div style={s.fieldGroup}>
-              <label style={s.label}>Mô tả dự án</label>
-              <textarea
-                name="description" placeholder="Mô tả ngắn về dự án..."
-                value={form.description} onChange={handleChange}
-                style={s.textarea} rows={3} disabled={loading}
-              />
-            </div>
-            <div style={s.fieldGroup}>
-              <label style={s.label}>Mục tiêu (Goal)</label>
-              <textarea
-                name="goal" placeholder="Mục tiêu cần đạt được..."
-                value={form.goal} onChange={handleChange}
-                style={s.textarea} rows={3} disabled={loading}
-              />
-            </div>
-            <div style={s.actions}>
-              <button type="button" style={s.cancelBtn} onClick={() => navigate("/dashboard")}>Hủy</button>
-              <button type="submit" style={{ ...s.submitBtn, opacity: loading ? 0.7 : 1 }} disabled={loading}>
-                {loading ? "Đang tạo..." : "Tạo dự án"}
-              </button>
-            </div>
-          </form>
+              <div className="space-y-3">
+                <label className="block text-xs font-black text-primary uppercase tracking-widest px-1">Mục tiêu (Goal)</label>
+                <textarea
+                  name="goal" 
+                  value={form.goal} 
+                  onChange={handleChange}
+                  placeholder="Mục tiêu lớn nhất dự án muốn đạt được..."
+                  className="w-full bg-surface-container-low px-6 py-4 rounded-2xl border border-outline-variant/10 focus:border-primary focus:ring-4 focus:ring-primary/5 outline-none transition-all text-sm font-medium text-on-surface placeholder:text-on-surface-variant/30 min-h-[120px] resize-none"
+                  disabled={loading}
+                />
+              </div>
+
+              <div className="space-y-3">
+                <label className="block text-xs font-black text-primary uppercase tracking-widest px-1">Mô tả dự án</label>
+                <textarea
+                  name="description" 
+                  value={form.description} 
+                  onChange={handleChange}
+                  placeholder="Mô tả ngắn gọn về dự án..."
+                  className="w-full bg-surface-container-low px-6 py-4 rounded-2xl border border-outline-variant/10 focus:border-primary focus:ring-4 focus:ring-primary/5 outline-none transition-all text-sm font-medium text-on-surface placeholder:text-on-surface-variant/30 min-h-[160px] resize-none"
+                  disabled={loading}
+                />
+              </div>
+
+              <div className="pt-6 flex flex-col sm:flex-row items-center gap-4">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className={`w-full sm:w-auto px-12 py-4 bg-primary text-on-primary rounded-2xl font-black shadow-xl shadow-primary/20 hover:scale-[0.98] active:scale-95 transition-all text-sm flex items-center justify-center gap-3 ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                >
+                  {loading ? (
+                    <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <span className="material-symbols-outlined">rocket_launch</span>
+                  )}
+                  {loading ? 'Đang tạo...' : 'Tạo dự án'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate("/dashboard")}
+                  className="w-full sm:w-auto px-10 py-4 bg-surface-container text-on-surface-variant rounded-2xl font-black text-sm border border-outline-variant/10 hover:bg-surface-container-high transition-all"
+                >
+                  Hủy
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       </main>
     </div>
   );
 }
-
-const s = {
-  page: { minHeight: "100vh", background: "#F4F5F7", fontFamily: "'Segoe UI', -apple-system, sans-serif" },
-  nav: {
-    background: "#0052CC", height: 56, display: "flex", alignItems: "center",
-    justifyContent: "space-between", padding: "0 24px", position: "sticky", top: 0, zIndex: 100,
-    boxShadow: "0 2px 8px rgba(0,52,140,0.3)",
-  },
-  navLeft: { display: "flex", alignItems: "center", gap: 12 },
-  logoWrap: { display: "flex", alignItems: "center", gap: 8 },
-  logoIcon: {
-    width: 32, height: 32, borderRadius: 8, background: "rgba(255,255,255,0.2)",
-    display: "flex", alignItems: "center", justifyContent: "center",
-  },
-  logoText: { color: "#fff", fontWeight: 700, fontSize: 16 },
-  backBtn: {
-    background: "rgba(255,255,255,0.15)", color: "#fff",
-    border: "1px solid rgba(255,255,255,0.3)", borderRadius: 6,
-    padding: "6px 14px", fontSize: 13, cursor: "pointer", fontWeight: 500,
-  },
-  main: { maxWidth: 680, margin: "0 auto", padding: "32px 24px" },
-  breadcrumb: { display: "flex", alignItems: "center", gap: 8, marginBottom: 24 },
-  breadcrumbLink: { fontSize: 14, color: "#0052CC", cursor: "pointer", fontWeight: 500 },
-  breadcrumbSep: { color: "#6B778C", fontSize: 14 },
-  breadcrumbCurrent: { fontSize: 14, color: "#6B778C" },
-  card: {
-    background: "#fff", borderRadius: 10, padding: "32px",
-    boxShadow: "0 1px 4px rgba(9,30,66,0.1), 0 0 0 1px rgba(9,30,66,0.06)",
-  },
-  cardTop: { display: "flex", alignItems: "center", gap: 16, marginBottom: 28 },
-  cardIcon: { fontSize: 36 },
-  cardTitle: { fontSize: 22, fontWeight: 700, color: "#172B4D", margin: "0 0 4px" },
-  cardSubtitle: { fontSize: 14, color: "#6B778C", margin: 0 },
-  errorBox: {
-    background: "#FFEBE6", border: "1px solid #FF8F73", borderRadius: 6,
-    padding: "10px 14px", marginBottom: 20, color: "#BF2600",
-    fontSize: 14, display: "flex", alignItems: "center", gap: 8,
-  },
-  successBox: {
-    background: "#E3FCEF", border: "1px solid #57D9A3", borderRadius: 6,
-    padding: "10px 14px", marginBottom: 20, color: "#006644",
-    fontSize: 14, display: "flex", alignItems: "center", gap: 8,
-  },
-  form: { display: "flex", flexDirection: "column", gap: 20 },
-  fieldGroup: { display: "flex", flexDirection: "column", gap: 6 },
-  label: { fontSize: 13, fontWeight: 600, color: "#172B4D" },
-  required: { color: "#FF5630" },
-  input: {
-    padding: "10px 12px", borderRadius: 6, border: "2px solid #DFE1E6",
-    fontSize: 14, color: "#172B4D", outline: "none", fontFamily: "inherit",
-  },
-  textarea: {
-    padding: "10px 12px", borderRadius: 6, border: "2px solid #DFE1E6",
-    fontSize: 14, color: "#172B4D", outline: "none", fontFamily: "inherit",
-    resize: "vertical", lineHeight: 1.5,
-  },
-  actions: { display: "flex", gap: 12, justifyContent: "flex-end", paddingTop: 8 },
-  cancelBtn: {
-    padding: "10px 20px", borderRadius: 6, border: "2px solid #DFE1E6",
-    background: "#fff", fontSize: 14, fontWeight: 600, color: "#42526E", cursor: "pointer",
-  },
-  submitBtn: {
-    padding: "10px 24px", borderRadius: 6, border: "none",
-    background: "linear-gradient(135deg, #0052CC, #0065FF)",
-    color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer",
-    boxShadow: "0 2px 8px rgba(0,82,204,0.35)",
-  },
-};
-
-export default CreateProject;

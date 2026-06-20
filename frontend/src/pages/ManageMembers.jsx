@@ -150,30 +150,41 @@ export default function ManageMembers() {
       <main className="max-w-4xl mx-auto py-10 px-6">
         <div className="bg-white rounded-3xl shadow-xl shadow-surface-variant/5 border border-outline-variant/10 overflow-hidden">
           {/* Header section */}
-          <div className="p-8 border-b border-outline-variant/10 bg-surface-container-low flex items-center justify-between gap-6">
+          <div className="p-6 md:p-8 border-b border-outline-variant/10 bg-surface-container-low flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="flex-1">
-              <h1 className="text-3xl font-extrabold text-on-surface tracking-tighter mb-1">Thành viên Dự án</h1>
-              <p className="text-sm text-on-surface-variant font-medium">
+              <div className="flex items-center gap-3 mb-1">
+                <h1 className="text-2xl md:text-3xl font-extrabold text-on-surface tracking-tighter">Thành viên Dự án</h1>
+                {isPO && (
+                  <button 
+                    onClick={() => navigate(`/projects/${projectId}/edit`)}
+                    className="p-2 bg-primary/10 text-primary rounded-xl hover:bg-primary hover:text-on-primary transition-all shadow-sm"
+                    title="Chỉnh sửa thông tin dự án"
+                  >
+                    <span className="material-symbols-outlined text-sm">edit</span>
+                  </button>
+                )}
+              </div>
+              <p className="text-sm text-on-surface-variant font-medium max-w-lg">
                 {isPO ? 'Bạn là Product Owner (PO) — có quyền thay đổi vai trò và xóa thành viên.' : isManagement ? 'Bạn là Scrum Master (SM) — có quyền thay đổi vai trò và mời thành viên.' : 'Bạn đang xem danh sách thành viên dự án.'}
               </p>
             </div>
-            <div className="bg-primary/5 px-4 py-3 rounded-2xl flex flex-col items-center min-w-[100px]">
+            <div className="bg-primary/5 px-4 py-3 rounded-2xl flex md:flex-col items-center justify-between md:justify-center min-w-[100px] gap-2">
               <span className="text-2xl font-black text-primary leading-none">{members.length}</span>
-              <span className="text-[10px] font-bold text-primary/60 uppercase tracking-widest mt-1">Members</span>
+              <span className="text-[10px] font-bold text-primary/60 uppercase tracking-widest">Members</span>
             </div>
           </div>
 
-          <div className="p-8">
+          <div className="p-6 md:p-8">
             {/* SMART INVITE SECTION */}
             {isManagement && (
               <div className="mb-10 relative">
-                <label className="block text-xs font-black text-primary uppercase tracking-widest mb-3">Mời thành viên mới</label>
+                <label className="block text-xs font-black text-primary uppercase tracking-widest mb-3 px-1">Mời thành viên mới</label>
                 <div className="relative group">
-                  <div className={`flex items-center gap-3 bg-surface-container-low border ${searchQuery ? 'border-primary' : 'border-outline-variant/10'} rounded-2xl px-5 py-4 focus-within:ring-4 focus-within:ring-primary/10 transition-all`}>
+                  <div className={`flex items-center gap-3 bg-white border ${searchQuery ? 'border-primary shadow-lg shadow-primary/5' : 'border-outline-variant/10'} rounded-2xl px-5 py-4 focus-within:ring-4 focus-within:ring-primary/10 transition-all`}>
                     <span className="material-symbols-outlined text-primary/60 group-focus-within:text-primary transition-colors">person_add</span>
                     <input 
                       type="text" 
-                      placeholder="Tìm theo Tên hoặc Email (nhập từ 2 ký tự)..."
+                      placeholder="Tìm theo Tên hoặc Email..."
                       className="bg-transparent border-none outline-none flex-1 text-sm font-medium text-on-surface placeholder:text-on-surface-variant/40"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
@@ -183,16 +194,16 @@ export default function ManageMembers() {
 
                   {/* Suggestions Dropdown */}
                   {suggestions.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-outline-variant/10 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="absolute top-full left-0 right-0 mt-3 bg-white rounded-3xl shadow-2xl border border-outline-variant/10 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-300">
                       {suggestions.map(user => (
                         <button
                           key={user.id}
                           onClick={() => handleInvite(user)}
                           disabled={isInviting || members.some(m => m.userId === user.id)}
-                          className="w-full flex items-center justify-between p-4 hover:bg-primary/5 transition-all text-left border-b border-outline-variant/10 last:border-0 group/item"
+                          className="w-full flex items-center justify-between p-5 hover:bg-primary/5 transition-all text-left border-b border-outline-variant/5 last:border-0 group/item"
                         >
                           <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm">
+                            <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-black text-sm">
                               {user.fullName.charAt(0).toUpperCase()}
                             </div>
                             <div>
@@ -203,16 +214,13 @@ export default function ManageMembers() {
                           {members.some(m => m.userId === user.id) ? (
                             <span className="text-[10px] font-black text-on-surface-variant/40 uppercase tracking-widest px-3 py-1 bg-surface-container rounded-full">Đã tham gia</span>
                           ) : (
-                            <span className="material-symbols-outlined text-primary opacity-0 group-hover/item:opacity-100 transition-opacity">add_task</span>
+                            <span className="material-symbols-outlined text-primary opacity-0 group-hover/item:opacity-100 transition-opacity">send</span>
                           )}
                         </button>
                       ))}
                     </div>
                   )}
                 </div>
-                <p className="mt-2 text-[10px] text-on-surface-variant/60 font-medium px-1 italic">
-                  Chỉ những người đã đăng ký tài khoản mới xuất hiện trong tìm kiếm.
-                </p>
               </div>
             )}
 
@@ -240,39 +248,41 @@ export default function ManageMembers() {
             ) : (
               <div className="space-y-4">
                 {members.map((member) => (
-                  <div key={member.userId} className="group flex items-center justify-between p-4 rounded-2xl border border-outline-variant/10 hover:bg-surface-container-low transition-all">
+                  <div key={member.userId} className="group flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl border border-outline-variant/10 hover:bg-surface-container-low transition-all gap-4">
                     <div className="flex items-center gap-4">
-                      <div className={`w-12 h-12 rounded-full ${avatarColor(member.user.fullName)} flex items-center justify-center text-on-primary font-bold text-lg ring-4 ring-white shadow-sm`}>
+                      <div className={`w-12 h-12 rounded-full ${avatarColor(member.user.fullName)} flex items-center justify-center text-on-primary font-bold text-lg ring-4 ring-white shadow-sm shrink-0`}>
                         {member.user.fullName?.charAt(0).toUpperCase() || '?'}
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-on-surface">{member.user.fullName}</span>
+                      <div className="overflow-hidden">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-on-surface truncate">{member.user.fullName}</span>
                           {member.userId === currentUser.id && (
-                            <span className="px-2 py-0.5 bg-primary/10 text-primary text-[10px] font-black rounded-full uppercase tracking-widest">Bạn</span>
+                            <span className="px-2 py-0.5 bg-primary/10 text-primary text-[10px] font-black rounded-full uppercase tracking-widest shrink-0">Bạn</span>
                           )}
                         </div>
-                        <p className="text-xs text-on-surface-variant font-medium opacity-70">{member.user.email}</p>
+                        <p className="text-xs text-on-surface-variant font-medium opacity-70 truncate">{member.user.email}</p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3">
-                      {member.status === 'PENDING' && (
-                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-xl animate-pulse">
-                          <span className="material-symbols-outlined text-sm">schedule</span>
-                          <span className="text-[10px] font-black uppercase tracking-widest">Đang chờ</span>
-                        </div>
-                      )}
+                    <div className="flex items-center justify-between sm:justify-end gap-3 border-t sm:border-none pt-3 sm:pt-0">
+                      <div className="flex items-center gap-2">
+                        {member.status === 'PENDING' && (
+                          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-xl">
+                            <span className="material-symbols-outlined text-sm">schedule</span>
+                            <span className="text-[10px] font-black uppercase tracking-widest">Đang chờ</span>
+                          </div>
+                        )}
 
-                      {isPO && member.userId !== currentUser.id && (
-                        <button 
-                          onClick={() => handleKick(member.userId, member.user.fullName)}
-                          className="p-2 text-error hover:bg-error/10 rounded-xl transition-all"
-                          title="Xóa thành viên"
-                        >
-                          <span className="material-symbols-outlined text-lg">person_remove</span>
-                        </button>
-                      )}
+                        {isPO && member.userId !== currentUser.id && (
+                          <button 
+                            onClick={() => handleKick(member.userId, member.user.fullName)}
+                            className="p-2 text-error hover:bg-error/10 rounded-xl transition-all"
+                            title="Xóa thành viên"
+                          >
+                            <span className="material-symbols-outlined text-lg">person_remove</span>
+                          </button>
+                        )}
+                      </div>
 
                       {isManagement && member.userId !== currentUser.id ? (
                         <div className="relative">
@@ -280,7 +290,7 @@ export default function ManageMembers() {
                             value={member.role}
                             disabled={updatingId === member.userId}
                             onChange={(e) => handleRoleChange(member.userId, e.target.value)}
-                            className="appearance-none bg-surface-container px-4 py-2 pr-10 rounded-xl text-[11px] font-black text-on-surface-variant border-none focus:ring-2 focus:ring-primary/20 outline-none cursor-pointer transition-all uppercase tracking-widest"
+                            className="appearance-none bg-surface-container-high px-4 py-2 pr-10 rounded-xl text-[11px] font-black text-on-surface-variant border-none focus:ring-4 focus:ring-primary/10 outline-none cursor-pointer transition-all uppercase tracking-widest"
                           >
                             {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
                           </select>

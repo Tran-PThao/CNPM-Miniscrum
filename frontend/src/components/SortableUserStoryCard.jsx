@@ -25,12 +25,11 @@ export function SortableUserStoryCard(props) {
     <div
       ref={setNodeRef}
       style={style}
-      {...attributes}
-      {...listeners}
-      className={`cursor-grab active:cursor-grabbing ${isDragging ? 'z-50 scale-[1.03]' : ''}`}
+      className={`${isDragging ? 'z-50 scale-[1.03]' : ''}`}
     >
       <UserStoryCard 
         {...props}
+        dragProps={{ ...attributes, ...listeners }}
         isDragging={isDragging}
         isSelected={props.isSelected}
         onToggleSelect={props.onToggleSelect}

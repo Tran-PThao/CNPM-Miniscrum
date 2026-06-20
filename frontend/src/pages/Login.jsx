@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import ThemeToggle from "../components/ThemeToggle";
+import { loginUser } from "../services/api"; // 🌟 Bước 1: Import hàm chuẩn từ api.js
 
 function Login() {
   const [form, setForm] = useState({ email: "", password: "" });
@@ -16,172 +18,112 @@ function Login() {
     setLoading(true);
     setMessage("");
     try {
-      const res = await fetch(`http://${window.location.hostname}:5001/api/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-      const data = await res.json();
-      if (!res.ok) { setMessage(data.error || "Đăng nhập thất bại"); return; }
+      // 🌟 Bước 2: Thay thế toàn bộ đoạn fetch cũ bằng hàm loginUser
+      const res = await loginUser(form);
+      const data = res.data; // Axios trả kết quả về trong object .data
+
+      // Lưu trữ thông tin đăng nhập vào localStorage
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
-      login(data.user); // Cập nhật AuthContext ngay lập tức
+      
+      // Cập nhật Context trạng thái đăng nhập toàn hệ thống
+      login(data.user);
       navigate("/dashboard");
-    } catch {
-      setMessage("Không thể kết nối server");
+    } catch (error) {
+      // 🌟 Bước 3: Đọc lỗi trả về từ Backend thông qua Axios một cách an toàn
+      const errorMsg = error.response?.data?.error || "Không thể kết nối server";
+      setMessage(errorMsg);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={styles.page}>
-      <div style={styles.card}>
-        {/* Logo */}
-        <div style={styles.logoWrap}>
-          <div style={styles.logoIcon}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-              <path d="M12 2L4 7v10l8 5 8-5V7L12 2z" fill="#fff" opacity="0.9"/>
-              <path d="M12 2L4 7l8 5 8-5-8-5z" fill="#fff"/>
-            </svg>
-          </div>
-          <span style={styles.logoText}>Mini Scrum</span>
-        </div>
-
-        <h1 style={styles.title}>Đăng nhập vào tài khoản</h1>
-        <p style={styles.subtitle}>Chào mừng trở lại! Hãy tiếp tục sprint của bạn.</p>
-
-        {message && (
-          <div style={styles.errorBox}>
-            <span style={styles.errorIcon}>⚠</span> {message}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} style={styles.form}>
-          <div style={styles.fieldGroup}>
-            <label style={styles.label}>Email</label>
-            <input
-              type="email" name="email" placeholder="you@example.com"
-              value={form.email} onChange={handleChange}
-              style={styles.input} required
-            />
-          </div>
-          <div style={styles.fieldGroup}>
-            <label style={styles.label}>Mật khẩu</label>
-            <input
-              type="password" name="password" placeholder="••••••••"
-              value={form.password} onChange={handleChange}
-              style={styles.input} required
-            />
-          </div>
-          <button type="submit" style={{ ...styles.btn, opacity: loading ? 0.7 : 1 }} disabled={loading}>
-            {loading ? "Đang xử lý..." : "Đăng nhập"}
-          </button>
-        </form>
-
-        <div style={styles.divider}><span style={styles.dividerText}>hoặc</span></div>
-
-        <p style={styles.registerText}>
-          Chưa có tài khoản?{" "}
-          <Link to="/register" style={styles.link}>Đăng ký miễn phí</Link>
-        </p>
+    <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden transition-colors duration-500">
+      {/* Theme Toggle - Top Right */}
+      <div className="absolute top-6 right-6 z-50">
+        <ThemeToggle />
       </div>
 
       {/* Background decoration */}
-      <div style={styles.bgBlob1} />
-      <div style={styles.bgBlob2} />
+      <div className="absolute top-[-10%] right-[-10%] w-96 h-96 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-[-10%] left-[-10%] w-80 h-80 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
+
+      <div className="w-full max-w-md bg-surface-container-lowest rounded-[2.5rem] p-8 md:p-12 shadow-2xl border border-outline-variant/10 z-10 animate-in fade-in zoom-in-95 duration-700">
+        {/* Logo */}
+        <div className="flex items-center gap-3 mb-10 justify-center">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-primary-container flex items-center justify-center text-on-primary shadow-lg shadow-primary/20">
+            <span className="material-symbols-outlined text-2xl">rocket_launch</span>
+          </div>
+          <span className="text-2xl font-black text-primary tracking-tighter font-['Manrope']">Mini Scrum</span>
+        </div>
+
+        <h1 className="text-3xl font-black text-on-surface tracking-tight text-center mb-2 font-['Manrope']">Chào mừng trở lại!</h1>
+        <p className="text-on-surface-variant text-center mb-10 font-medium">Hãy tiếp tục hành trình Scrum của bạn.</p>
+
+        {message && (
+          <div className="bg-error/10 border border-error/20 rounded-2xl p-4 mb-8 flex items-center gap-3 text-error text-sm font-bold animate-in slide-in-from-top-2">
+            <span className="material-symbols-outlined text-lg">error</span>
+            {message}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-2">
+            <label className="text-sm font-bold text-on-surface-variant ml-1">Email</label>
+            <input
+              type="email" 
+              name="email" 
+              placeholder="name@company.com"
+              value={form.email} 
+              onChange={handleChange}
+              className="w-full px-5 py-4 bg-surface-container-low border border-outline-variant/10 rounded-2xl text-on-surface focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-medium" 
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-bold text-on-surface-variant ml-1">Mật khẩu</label>
+            <input
+              type="password" 
+              name="password" 
+              placeholder="••••••••"
+              value={form.password} 
+              onChange={handleChange}
+              className="w-full px-5 py-4 bg-surface-container-low border border-outline-variant/10 rounded-2xl text-on-surface focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-medium"
+              required
+            />
+          </div>
+          
+          <button 
+            type="submit" 
+            disabled={loading}
+            className="w-full py-4 bg-primary text-on-primary rounded-2xl font-black shadow-xl shadow-primary/20 hover:scale-[0.98] active:scale-95 disabled:opacity-70 transition-all text-base mt-4 flex items-center justify-center gap-2"
+          >
+            {loading ? (
+              <>
+                <div className="w-5 h-5 border-2 border-on-primary/20 border-t-on-primary rounded-full animate-spin" />
+                Đang đăng nhập...
+              </>
+            ) : "Đăng nhập ngay"}
+          </button>
+        </form>
+
+        <div className="relative my-10">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-outline-variant/10"></div>
+          </div>
+          <div className="relative flex justify-center text-xs uppercase font-black tracking-widest text-on-surface-variant/40">
+            <span className="bg-surface-container-lowest px-4">Hoặc</span>
+          </div>
+        </div>
+
+        <p className="text-center text-on-surface-variant font-medium">
+          Mới tham gia?{" "}
+          <Link to="/register" className="text-primary font-black hover:underline underline-offset-4 decoration-2">Tạo tài khoản</Link>
+        </p>
+      </div>
     </div>
   );
 }
-
-const styles = {
-  page: {
-    minHeight: "100vh",
-    background: "#F4F5F7",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontFamily: "'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif",
-    position: "relative",
-    overflow: "hidden",
-  },
-  bgBlob1: {
-    position: "fixed", top: -120, right: -120,
-    width: 400, height: 400, borderRadius: "50%",
-    background: "radial-gradient(circle, #0052CC22, transparent 70%)",
-    pointerEvents: "none",
-  },
-  bgBlob2: {
-    position: "fixed", bottom: -100, left: -100,
-    width: 350, height: 350, borderRadius: "50%",
-    background: "radial-gradient(circle, #0065FF22, transparent 70%)",
-    pointerEvents: "none",
-  },
-  card: {
-    background: "#fff",
-    borderRadius: 12,
-    padding: "48px 40px",
-    width: "100%",
-    maxWidth: 400,
-    boxShadow: "0 4px 24px rgba(9,30,66,0.12), 0 0 0 1px rgba(9,30,66,0.06)",
-    position: "relative",
-    zIndex: 1,
-  },
-  logoWrap: {
-    display: "flex", alignItems: "center", gap: 10,
-    marginBottom: 28, justifyContent: "center",
-  },
-  logoIcon: {
-    width: 40, height: 40, borderRadius: 10,
-    background: "linear-gradient(135deg, #0052CC, #0065FF)",
-    display: "flex", alignItems: "center", justifyContent: "center",
-    boxShadow: "0 2px 8px rgba(0,82,204,0.4)",
-  },
-  logoText: {
-    fontSize: 20, fontWeight: 700, color: "#0052CC", letterSpacing: "-0.3px",
-  },
-  title: {
-    fontSize: 22, fontWeight: 700, color: "#172B4D",
-    margin: "0 0 8px", textAlign: "center",
-  },
-  subtitle: {
-    fontSize: 14, color: "#6B778C", textAlign: "center", margin: "0 0 28px",
-  },
-  errorBox: {
-    background: "#FFEBE6", border: "1px solid #FF8F73",
-    borderRadius: 6, padding: "10px 14px", marginBottom: 20,
-    color: "#BF2600", fontSize: 14, display: "flex", alignItems: "center", gap: 8,
-  },
-  errorIcon: { fontSize: 16 },
-  form: { display: "flex", flexDirection: "column", gap: 16 },
-  fieldGroup: { display: "flex", flexDirection: "column", gap: 6 },
-  label: { fontSize: 13, fontWeight: 600, color: "#172B4D" },
-  input: {
-    padding: "10px 12px", borderRadius: 6,
-    border: "2px solid #DFE1E6", fontSize: 14, color: "#172B4D",
-    outline: "none", transition: "border-color 0.2s",
-    fontFamily: "inherit",
-    onFocus: { borderColor: "#0052CC" },
-  },
-  btn: {
-    marginTop: 8, padding: "11px 16px",
-    background: "linear-gradient(135deg, #0052CC, #0065FF)",
-    color: "#fff", border: "none", borderRadius: 6,
-    fontSize: 15, fontWeight: 600, cursor: "pointer",
-    transition: "transform 0.1s, box-shadow 0.2s",
-    boxShadow: "0 2px 8px rgba(0,82,204,0.35)",
-  },
-  divider: {
-    display: "flex", alignItems: "center", gap: 12, margin: "24px 0",
-    borderTop: "1px solid #DFE1E6", paddingTop: 0, position: "relative",
-  },
-  dividerText: {
-    position: "absolute", left: "50%", transform: "translateX(-50%)",
-    top: -10, background: "#fff", padding: "0 10px",
-    fontSize: 13, color: "#6B778C",
-  },
-  registerText: { textAlign: "center", fontSize: 14, color: "#6B778C", margin: 0 },
-  link: { color: "#0052CC", fontWeight: 600, textDecoration: "none" },
-};
 
 export default Login;

@@ -11,15 +11,18 @@ export default function KanbanColumn({
   items = [],
   sprintId,
   onUpdateItem,
+  projectId,
   itemType = 'story', // 'story' or 'task'
   columnId,           // Optional custom ID for swimlanes
   onAssign,
+  onAssignId,
   onEdit,
   onDelete,
   userRole = 'MEMBER',
   members = [],
   onAssignTask,
-  onDeleteTask
+  onDeleteTask,
+  currentUser,        // ← THÊM DÒNG NÀY (bắt buộc cho CommentSection)
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: columnId || `column-${status}`,
@@ -54,9 +57,11 @@ export default function KanbanColumn({
                 variant="sprint"
                 userRole={userRole}
                 onAssign={onAssign}
+                onAssignId={onAssignId}
                 onEdit={onEdit}
                 onDelete={onDelete}
                 onMove={onUpdateItem}
+                members={members}
               />
             ) : (
               <TaskCard
@@ -65,6 +70,8 @@ export default function KanbanColumn({
                 id={`task-${item.id}`}
                 members={members}
                 userRole={userRole}
+                projectId={projectId}
+                currentUser={currentUser}          // ← THÊM DÒNG NÀY (quan trọng nhất)
                 onUpdate={(data) => onUpdateItem(item.id, data)}
                 onDelete={() => onDeleteTask && onDeleteTask(item.id)}
                 onAssign={() => onAssignTask && onAssignTask(item.id)}

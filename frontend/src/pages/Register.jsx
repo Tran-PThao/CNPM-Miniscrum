@@ -1,21 +1,48 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
+import ThemeToggle from '../components/ThemeToggle';
 
 export default function Register() {
-  const [form, setForm] = useState({ email: '', password: '', fullName: '' });
+  const [form, setForm] = useState({ email: '', password: '', confirmPassword: '', fullName: '' });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
+
+  const passwordRequirements = [
+    { label: 'Ít nhất 8 ký tự', test: (p) => p.length >= 8 },
+    { label: 'Chữ hoa (A-Z)', test: (p) => /[A-Z]/.test(p) },
+    { label: 'Chữ thường (a-z)', test: (p) => /[a-z]/.test(p) },
+    { label: 'Số (0-9)', test: (p) => /\d/.test(p) },
+    { label: 'Ký tự đặc biệt (@, $, !, ...)', test: (p) => /[@$!%*?&]/.test(p) },
+  ];
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError(''); setSuccess(''); setLoading(true);
+    setError(''); 
+    setSuccess(''); 
+    setLoading(true);
+    if (form.password !== form.confirmPassword) {
+      setError('Mật khẩu nhập lại không khớp!');
+      setLoading(false);
+      return;
+    }
+
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordRegex.test(form.password)) {
+      setError('Mật khẩu không đạt yêu cầu bảo mật!');
+      setLoading(false);
+      return;
+    }
+
     try {
-      const res = await axios.post(`http://${window.location.hostname}:5001/api/register`, form);
+      const baseUrl = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:5000/api`;
+      const res = await axios.post(`${baseUrl}/register`, form);
       setSuccess('Đăng ký thành công! Đang chuyển hướng...');
       localStorage.setItem('userId', res.data.userId);
       setTimeout(() => navigate('/dashboard'), 1500);
@@ -27,147 +54,161 @@ export default function Register() {
   };
 
   return (
-    <div style={styles.page}>
-      <div style={styles.card}>
-        <div style={styles.logoWrap}>
-          <div style={styles.logoIcon}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-              <path d="M12 2L4 7v10l8 5 8-5V7L12 2z" fill="#fff" opacity="0.9"/>
-              <path d="M12 2L4 7l8 5 8-5-8-5z" fill="#fff"/>
-            </svg>
+    <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden transition-colors duration-500">
+      {/* Theme Toggle - Top Right */}
+      <div className="absolute top-6 right-6 z-50">
+        <ThemeToggle />
+      </div>
+
+      {/* Background decoration */}
+      <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-80 h-80 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
+
+      <div className="w-full max-w-md bg-surface-container-lowest rounded-[2.5rem] p-8 md:p-12 shadow-2xl border border-outline-variant/10 z-10 animate-in fade-in zoom-in-95 duration-700">
+        {/* Logo */}
+        <div className="flex items-center gap-3 mb-10 justify-center">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-primary-container flex items-center justify-center text-on-primary shadow-lg shadow-primary/20">
+            <span className="material-symbols-outlined text-2xl">rocket_launch</span>
           </div>
-          <span style={styles.logoText}>Mini Scrum</span>
+          <span className="text-2xl font-black text-primary tracking-tighter font-['Manrope']">Mini Scrum</span>
         </div>
 
-        <h1 style={styles.title}>Tạo tài khoản mới</h1>
-        <p style={styles.subtitle}>Bắt đầu quản lý sprint của bạn ngay hôm nay.</p>
+        <h1 className="text-3xl font-black text-on-surface tracking-tight text-center mb-2 font-['Manrope']">Tạo tài khoản</h1>
+        <p className="text-on-surface-variant text-center mb-10 font-medium">Bắt đầu quản lý dự án một cách chuyên nghiệp.</p>
 
         {error && (
-          <div style={styles.errorBox}>
-            <span>⚠</span> {error}
-          </div>
-        )}
-        {success && (
-          <div style={styles.successBox}>
-            <span>✓</span> {success}
+          <div className="bg-error/10 border border-error/20 rounded-2xl p-4 mb-8 flex items-center gap-3 text-error text-sm font-bold animate-in slide-in-from-top-2">
+            <span className="material-symbols-outlined text-lg">error</span>
+            {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} style={styles.form}>
-          <div style={styles.fieldGroup}>
-            <label style={styles.label}>Họ và tên</label>
+        {success && (
+          <div className="bg-green-500/10 border border-green-500/20 rounded-2xl p-4 mb-8 flex items-center gap-3 text-green-600 dark:text-green-400 text-sm font-bold animate-in slide-in-from-top-2">
+            <span className="material-symbols-outlined text-lg">check_circle</span>
+            {success}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="space-y-2">
+            <label className="text-sm font-bold text-on-surface-variant ml-1">Họ và tên</label>
             <input
-              name="fullName" placeholder="Nguyễn Văn A"
-              value={form.fullName} onChange={handleChange}
-              style={styles.input} required disabled={loading}
+              type="text" 
+              name="fullName" 
+              placeholder="Nguyễn Văn A"
+              value={form.fullName} 
+              onChange={handleChange}
+              className="w-full px-5 py-4 bg-surface-container-low border border-outline-variant/10 rounded-2xl text-on-surface focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-medium" 
+              required
             />
           </div>
-          <div style={styles.fieldGroup}>
-            <label style={styles.label}>Email</label>
+          <div className="space-y-2">
+            <label className="text-sm font-bold text-on-surface-variant ml-1">Email</label>
             <input
-              type="email" name="email" placeholder="you@example.com"
-              value={form.email} onChange={handleChange}
-              style={styles.input} required disabled={loading}
+              type="email" 
+              name="email" 
+              placeholder="name@company.com"
+              value={form.email} 
+              onChange={handleChange}
+              className="w-full px-5 py-4 bg-surface-container-low border border-outline-variant/10 rounded-2xl text-on-surface focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-medium" 
+              required
             />
           </div>
-          <div style={styles.fieldGroup}>
-            <label style={styles.label}>Mật khẩu</label>
-            <input
-              type="password" name="password" placeholder="Tối thiểu 6 ký tự"
-              value={form.password} onChange={handleChange}
-              style={styles.input} required disabled={loading}
-            />
+          <div className="space-y-2">
+            <label className="text-sm font-bold text-on-surface-variant ml-1">Mật khẩu</label>
+            <div className="relative group">
+              <input
+                type={showPassword ? "text" : "password"} 
+                name="password" 
+                placeholder="••••••••"
+                value={form.password} 
+                onChange={handleChange}
+                className="w-full px-5 py-4 bg-surface-container-low border border-outline-variant/10 rounded-2xl text-on-surface focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-medium pr-12"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant/50 hover:text-primary transition-colors focus:outline-none"
+              >
+                <span className="material-symbols-outlined text-xl">
+                  {showPassword ? 'visibility_off' : 'visibility'}
+                </span>
+              </button>
+            </div>
+            
+            {/* Password Requirements UI */}
+            <div className="mt-4 p-4 bg-surface-container rounded-2xl border border-outline-variant/5 space-y-2 animate-in fade-in slide-in-from-top-1 duration-500">
+              <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/50 mb-2 px-1">Yêu cầu mật khẩu</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2">
+                {passwordRequirements.map((req, index) => {
+                  const isMet = req.test(form.password);
+                  return (
+                    <div key={index} className="flex items-center gap-2 px-1">
+                      <div className={`w-4 h-4 rounded-full flex items-center justify-center transition-all duration-500 ${isMet ? 'bg-primary shadow-lg shadow-primary/20 scale-110' : 'bg-outline-variant/20'}`}>
+                        <span className={`material-symbols-outlined text-[10px] font-bold ${isMet ? 'text-on-primary' : 'text-transparent'}`}>check</span>
+                      </div>
+                      <span className={`text-[11px] font-bold transition-colors duration-500 ${isMet ? 'text-on-surface' : 'text-on-surface-variant/40'}`}>
+                        {req.label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
-          <button
-            type="submit"
-            style={{ ...styles.btn, opacity: loading ? 0.7 : 1 }}
+          <div className="space-y-2">
+            <label className="text-sm font-bold text-on-surface-variant ml-1">Nhập lại mật khẩu</label>
+            <div className="relative group">
+              <input
+                type={showConfirmPassword ? "text" : "password"} 
+                name="confirmPassword" 
+                placeholder="••••••••"
+                value={form.confirmPassword} 
+                onChange={handleChange}
+                className="w-full px-5 py-4 bg-surface-container-low border border-outline-variant/10 rounded-2xl text-on-surface focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-medium pr-12"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant/50 hover:text-primary transition-colors focus:outline-none"
+              >
+                <span className="material-symbols-outlined text-xl">
+                  {showConfirmPassword ? 'visibility_off' : 'visibility'}
+                </span>
+              </button>
+            </div>
+          </div>
+          <button 
+            type="submit" 
             disabled={loading}
+            className="w-full py-4 bg-primary text-on-primary rounded-2xl font-black shadow-xl shadow-primary/20 hover:scale-[0.98] active:scale-95 disabled:opacity-70 transition-all text-base mt-4 flex items-center justify-center gap-2"
           >
-            {loading ? 'Đang xử lý...' : 'Đăng ký ngay'}
+            {loading ? (
+              <>
+                <div className="w-5 h-5 border-2 border-on-primary/20 border-t-on-primary rounded-full animate-spin" />
+                Đang xử lý...
+              </>
+            ) : "Đăng ký ngay"}
           </button>
         </form>
 
-        <div style={styles.divider}><span style={styles.dividerText}>hoặc</span></div>
+        <div className="relative my-10">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-outline-variant/10"></div>
+          </div>
+          <div className="relative flex justify-center text-xs uppercase font-black tracking-widest text-on-surface-variant/40">
+            <span className="bg-surface-container-lowest px-4">Hoặc</span>
+          </div>
+        </div>
 
-        <p style={styles.loginText}>
-          Đã có tài khoản?{' '}
-          <Link to="/login" style={styles.link}>Đăng nhập</Link>
+        <p className="text-center text-on-surface-variant font-medium">
+          Đã có tài khoản?{" "}
+          <Link to="/login" className="text-primary font-black hover:underline underline-offset-4 decoration-2">Đăng nhập</Link>
         </p>
       </div>
-      <div style={styles.bgBlob1} />
-      <div style={styles.bgBlob2} />
     </div>
   );
 }
-
-const styles = {
-  page: {
-    minHeight: '100vh', background: '#F4F5F7',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontFamily: "'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif",
-    position: 'relative', overflow: 'hidden',
-  },
-  bgBlob1: {
-    position: 'fixed', top: -120, right: -120, width: 400, height: 400,
-    borderRadius: '50%', background: 'radial-gradient(circle, #0052CC22, transparent 70%)',
-    pointerEvents: 'none',
-  },
-  bgBlob2: {
-    position: 'fixed', bottom: -100, left: -100, width: 350, height: 350,
-    borderRadius: '50%', background: 'radial-gradient(circle, #0065FF22, transparent 70%)',
-    pointerEvents: 'none',
-  },
-  card: {
-    background: '#fff', borderRadius: 12, padding: '48px 40px',
-    width: '100%', maxWidth: 400,
-    boxShadow: '0 4px 24px rgba(9,30,66,0.12), 0 0 0 1px rgba(9,30,66,0.06)',
-    position: 'relative', zIndex: 1,
-  },
-  logoWrap: {
-    display: 'flex', alignItems: 'center', gap: 10,
-    marginBottom: 28, justifyContent: 'center',
-  },
-  logoIcon: {
-    width: 40, height: 40, borderRadius: 10,
-    background: 'linear-gradient(135deg, #0052CC, #0065FF)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    boxShadow: '0 2px 8px rgba(0,82,204,0.4)',
-  },
-  logoText: { fontSize: 20, fontWeight: 700, color: '#0052CC', letterSpacing: '-0.3px' },
-  title: { fontSize: 22, fontWeight: 700, color: '#172B4D', margin: '0 0 8px', textAlign: 'center' },
-  subtitle: { fontSize: 14, color: '#6B778C', textAlign: 'center', margin: '0 0 28px' },
-  errorBox: {
-    background: '#FFEBE6', border: '1px solid #FF8F73', borderRadius: 6,
-    padding: '10px 14px', marginBottom: 20, color: '#BF2600',
-    fontSize: 14, display: 'flex', alignItems: 'center', gap: 8,
-  },
-  successBox: {
-    background: '#E3FCEF', border: '1px solid #57D9A3', borderRadius: 6,
-    padding: '10px 14px', marginBottom: 20, color: '#006644',
-    fontSize: 14, display: 'flex', alignItems: 'center', gap: 8,
-  },
-  form: { display: 'flex', flexDirection: 'column', gap: 16 },
-  fieldGroup: { display: 'flex', flexDirection: 'column', gap: 6 },
-  label: { fontSize: 13, fontWeight: 600, color: '#172B4D' },
-  input: {
-    padding: '10px 12px', borderRadius: 6, border: '2px solid #DFE1E6',
-    fontSize: 14, color: '#172B4D', outline: 'none', fontFamily: 'inherit',
-  },
-  btn: {
-    marginTop: 8, padding: '11px 16px',
-    background: 'linear-gradient(135deg, #0052CC, #0065FF)',
-    color: '#fff', border: 'none', borderRadius: 6,
-    fontSize: 15, fontWeight: 600, cursor: 'pointer',
-    boxShadow: '0 2px 8px rgba(0,82,204,0.35)',
-  },
-  divider: {
-    display: 'flex', alignItems: 'center', gap: 12,
-    margin: '24px 0 0', borderTop: '1px solid #DFE1E6', position: 'relative',
-  },
-  dividerText: {
-    position: 'absolute', left: '50%', transform: 'translateX(-50%)',
-    top: -10, background: '#fff', padding: '0 10px', fontSize: 13, color: '#6B778C',
-  },
-  loginText: { textAlign: 'center', fontSize: 14, color: '#6B778C', margin: '20px 0 0' },
-  link: { color: '#0052CC', fontWeight: 600, textDecoration: 'none' },
-};

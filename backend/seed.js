@@ -3,16 +3,16 @@ const prisma = new PrismaClient();
 
 async function main() {
   // Create a test project
-  const project = await prisma.project.create({
-    data: {
-      id: "cm7u0p1z10000uxm4g9x7h2kd", // Matching the hardcoded ID in frontend
-      name: "Demo Scrum Project",
-      description: "A project to test US-009, 015, 016, 017, 018",
-      goal: "Complete the mini scrum management system features."
-    }
-  });
+  //const project = await prisma.project.create({
+   // data: {
+      //id: "cm7u0p1z10000uxm4g9x7h2kd", // Matching the hardcoded ID in frontend
+      //name: "Demo Scrum Project",
+      //description: "A project to test US-009, 015, 016, 017, 018",
+      //goal: "Complete the mini scrum management system features."
+    //}
+  //});
 
-  console.log("Created Project:", project.id);
+  //console.log("Created Project:", project.id);
 
   // Create initial user stories in backlog
   const stories = [
@@ -26,7 +26,7 @@ async function main() {
     await prisma.userStory.create({
       data: {
         ...s,
-        projectId: project.id,
+        projectId: "cm7u0p1z10000uxm4g9x7h2kd",
         status: "BACKLOG"
       }
     });
